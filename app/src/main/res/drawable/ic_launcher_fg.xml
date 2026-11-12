@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RenderLab launcher foreground (tools/build_icon.py draws the same artwork for the PICO layered icon). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFE2DCD2" android:pathData="M20.00,24.00L62.00,20.00L62.00,60.00L20.00,68.00Z" />
+    <path android:fillColor="#FFC9C2B6" android:pathData="M20.00,68.00L62.00,60.00L90.00,72.00L48.00,86.00Z" />
+    <path android:fillColor="#FF4A364C" android:pathData="M36.00,78.00L22.00,70.00L22.00,44.00L34.00,42.00L47.00,60.00Z" />
+    <path android:fillColor="#FFF7F4EE" android:pathData="M53.00,50.00L71.00,58.00L53.00,66.00L35.00,58.00Z" />
+    <path android:fillColor="#FFB9B2A6" android:pathData="M35.00,58.00L53.00,66.00L53.00,86.00L35.00,78.00Z" />
+    <path android:fillColor="#FFEAE5DB" android:pathData="M53.00,66.00L71.00,58.00L71.00,78.00L53.00,86.00Z" />
+    <path android:fillColor="#55FFD27A" android:pathData="M69.5,36.0a13.5,13.5 0 1,0 27.0,0a13.5,13.5 0 1,0 -27.0,0Z" />
+    <path android:fillColor="#FFFFD27A" android:pathData="M75.5,36.0a7.5,7.5 0 1,0 15.0,0a7.5,7.5 0 1,0 -15.0,0Z" />
+</vector>
