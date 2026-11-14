@@ -27,9 +27,9 @@ PICO OS 6 空间应用（Full Space · Mixed Stage，Spatial SDK 6.1.9）。透�
 
 | | |
 |---|---|
-| ![](docs/shot-01.jpg) 对上了：影子进框，围栏变绿 | ![](docs/shot-02.jpg) 拖主光：灯球旁实时写方位和高度 |
+| ![](docs/shot-01.jpg) 对上了：影子进框，围栏变绿 | ![](docs/shot-02.jpg) 拖主光：灯球旁实时写方位和高度，细线是光线方向线 |
 | ![](docs/shot-03.jpg) 控制窗：对准度卡 + 亮度 / 色温滑条 | ![](docs/shot-04.jpg) 拍下：3 / 3 星，附一句为什么 |
-| ![](docs/shot-05.jpg) L6 冷暖对打：暮色背景里的青瓷茶壶 | ![](docs/shot-06.jpg) 自由打光：黑棚、夜光釉花瓶，三盏灯全开 |
+| ![](docs/shot-05.jpg) L6 冷暖对打：暮色背景里的青瓷茶壶 | ![](docs/shot-06.jpg) 自由打光：黑棚、夜光釉花瓶，下方换材质 |
 | ![](docs/shot-07.jpg) 题卡：8 道场面题 + 随机一题 + 自由打光 | |
 
 截图和演示视频在 PICO 模拟器上录制，3D 操作由调试广播驱动，**非真实手势录像**。
@@ -95,7 +95,7 @@ A PICO OS 6 spatial app (Full Space · Mixed Stage, Spatial SDK 6.1.9). With you
 |---|---|
 | ![](docs/shot-en-01.jpg) That's it: the shadow is in, the fence turns green | ![](docs/shot-en-02.jpg) Dragging the key light: angle and height next to the orb |
 | ![](docs/shot-en-03.jpg) Control window: alignment card + brightness / colour sliders | ![](docs/shot-en-04.jpg) Shot taken: 3 / 3 stars and why |
-| ![](docs/shot-en-05.jpg) L6 Warm meets cool: a celadon teapot against dusk | ![](docs/shot-en-06.jpg) Free lighting: glow-glaze vase in the black studio, all three lights on |
+| ![](docs/shot-en-05.jpg) L6 Warm meets cool: a celadon teapot against dusk | ![](docs/shot-en-06.jpg) Free lighting: glow-glaze vase in the black studio, material tray below |
 | ![](docs/shot-en-07.jpg) Shot cards: 8 shots + random + free lighting | |
 
 Screenshots and the demo video were recorded on the PICO emulator with 3D actions driven by debug broadcasts. **Not a real hand-gesture recording.**
