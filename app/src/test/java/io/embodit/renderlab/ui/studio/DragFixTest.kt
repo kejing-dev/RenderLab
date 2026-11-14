@@ -168,6 +168,9 @@ class ReachTest {
     @org.junit.Test fun nudgeNotStuckBehindRim() {
         val K = io.embodit.renderlab.domain.LightId.KEY
         val l = io.embodit.renderlab.domain.Lights.DEFAULT.let { it.with(K, it.key.copy(az = 22f, el = 31f)) }
+        // emulator self-test 2: key at 12°/54° behind which the (off) rim sits as you see it: ▶ still moves (off lights only keep the 28° gap)
+        val l2 = io.embodit.renderlab.domain.Lights.DEFAULT.let { it.with(K, it.key.copy(az = 12f, el = 54f)) }
+        org.junit.Assert.assertTrue(l2.canPlace(K, 18f, 54f))
         for (dir in io.embodit.renderlab.domain.Nudge.entries) {
             val ok = (1..10).any { k -> val (a, e) = io.embodit.renderlab.domain.LabFlow.nudgeTarget(22f, 31f, dir); l.canPlace(K, Studio.clampAz(22f + (a - 22f) * k), Studio.clampEl(31f + (e - 31f) * k)) }
             org.junit.Assert.assertTrue("$dir stuck", ok)

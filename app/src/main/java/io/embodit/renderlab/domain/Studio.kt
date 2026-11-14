@@ -113,10 +113,11 @@ object Studio {
      * Whether an orb at (az, el) keeps clear of another orb at (az2, el2): >= 28° apart on the sphere, and from the
      * nominal eye the two centres differ by more than the two hit half-angles + 0.5° (design input.dragOrb).
      */
-    fun clearOf(az: Float, el: Float, az2: Float, el2: Float): Boolean {
+    fun clearOf(az: Float, el: Float, az2: Float, el2: Float, visual: Boolean = true): Boolean {
         val p = orbPos(az, el)
         val q = orbPos(az2, el2)
         if (angleDeg(p - C, q - C) < MIN_SEP) return false
+        if (!visual) return true
         val need = (atan(HIT_R / p.dist(VIEW_EYE)) + atan(HIT_R / q.dist(VIEW_EYE))) / D2R + 0.5f
         return angleDeg(p - VIEW_EYE, q - VIEW_EYE) >= need
     }
@@ -149,7 +150,7 @@ data class Lights(val key: LightSet, val fill: LightSet, val rim: LightSet) {
 
     /** Can [id] move to (az, el) without crowding the other two orbs? */
     fun canPlace(id: LightId, az: Float, el: Float): Boolean =
-        LightId.entries.filter { it != id }.all { o -> this[o].let { Studio.clearOf(az, el, it.az, it.el) } }
+        LightId.entries.filter { it != id }.all { o -> this[o].let { Studio.clearOf(az, el, it.az, it.el, visual = it.on) } }
 
     companion object {
         val FILL_HOME = LightSet(-100f, 15f, Kelvin.DAY, Level.OFF)

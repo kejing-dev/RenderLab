@@ -62,8 +62,8 @@ class FlowTest {
         for (az in -135..135 step 15) for (el in 10..80 step 10) {
             f.place(LightId.KEY, az.toFloat(), el.toFloat())
             val l = f.state.value.lights
-            assertTrue(Studio.clearOf(l.key.az, l.key.el, l.fill.az, l.fill.el))
-            assertTrue(Studio.clearOf(l.key.az, l.key.el, l.rim.az, l.rim.el))
+            assertTrue(Studio.clearOf(l.key.az, l.key.el, l.fill.az, l.fill.el, visual = l.fill.on))
+            assertTrue(Studio.clearOf(l.key.az, l.key.el, l.rim.az, l.rim.el, visual = l.rim.on)) // v0.1.3: an off light only keeps the 28° gap
         }
     }
 
