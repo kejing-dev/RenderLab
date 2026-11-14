@@ -50,7 +50,7 @@ export JAVA_HOME=<JDK 17+>
 ./gradlew assembleDebug :app:testDebugUnitTest   # JVM 单测：影子 / 判分 / 阈值 / 可见性、流程、布局、摆位、命中回放
 ```
 
-工程结构、调试命令见 [AGENTS.md](AGENTS.md)。
+工程结构、调试命令见 [AGENTS.md](AGENTS.md)；各版本改动见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 已知问题 / 真机待核
 
@@ -112,7 +112,7 @@ The APK on the Release is the unsigned `assembleRelease` build used for the Vibe
 ### Known issues / to check on the headset
 
 - The three ways to drag a light (direct pinch / controller ray / eye + pinch) are verified only through code paths and hit replay; the emulator has no hands or controller
-- Since v0.1.2 the app draws no controller ray or hit dot of its own; the system ray is the only one per controller
+- Since v0.1.2 the app draws no controller ray or hit dot of its own; the system ray is the only one per controller. See [CHANGELOG.md](CHANGELOG.md) for all versions
 - English 3D strip text looks slanted on the right half of emulator captures; the texture itself is upright, likely an emulator compositing issue
 - The studio sits at desk height within reach, so the subject is about 52° below eye level; about 9° between the wall top and the window's system controls
 - With the larger name plates, the "Key" plate covers the "Fill" plate at the L2 solution; in free lighting and at the L1 start the key orb sits in front of the subject
