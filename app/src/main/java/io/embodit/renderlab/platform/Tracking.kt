@@ -45,9 +45,9 @@ class HeadTracker {
 data class ControllerSample(val origin: V3, val dir: V3, val trigger: Float, val pressed: Boolean, val right: Boolean)
 
 /**
- * Controller ray + trigger (ControllerTrackingProvider; same approach as pruning-class / Spatial Ruler). The app draws
- * its own ray and does its own orb pick (D41: "手柄射线自己画"), so a trigger drag works even where the system ray
- * does not reach into the scene. The action listener runs on the provider's thread and only copies into atomics.
+ * Controller pose + trigger (ControllerTrackingProvider; same approach as pruning-class / Spatial Ruler). The app does
+ * its own orb pick along the controller pose so a trigger drag works even where the system pointer does not deliver
+ * a drag; it draws nothing: in Full Space the system draws the one controller ray (D41 correction, v0.1.2). The action listener runs on the provider's thread and only copies into atomics.
  */
 class ControllerInput {
     private var provider: ControllerTrackingProvider? = null

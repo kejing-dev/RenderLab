@@ -263,6 +263,7 @@ private fun LightPage(st: LabState, settings: Settings, graph: Graph, sceneReady
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                     TopDiagram(st, showTarget = false, showMine = true, modifier = Modifier.size(144.dp))
                     Spacer(Modifier.width(16.dp))
+                    // gate:allow button-gap text-only column (subject / look / selected light lines), no buttons side by side
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Txt(subjectName(st.subject), "free/subject", style = PicoTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                         Txt(materialName(st.material) + " · " + backdropName(st.backdrop), "free/look", style = PicoTheme.typography.bodyMedium, maxLines = 2)

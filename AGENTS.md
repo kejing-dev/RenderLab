@@ -1,7 +1,7 @@
 # 光影渲染 RenderLab: project guidance
 
 A tabletop photo studio in PICO OS 6 Full Space (Mixed Stage) (Spatial SDK BOM 6.1.9), package `io.embodit.renderlab`,
-v0.1.1. Design contract: spatial-app-factory `apps/render-lab/design-package.json` (design-1.2; gate B 2026-11-12 all
+v0.1.2. Design contract: spatial-app-factory `apps/render-lab/design-package.json` (design-1.2; gate B 2026-11-12 all
 defaults: self-computed shadow + score, procedural subjects, no .glb import, 1 cm dashed fence). `v2[]` not built (no glb
 import, no Tripo plaster head, no custom IBL, no export, no spot light, no material sliders, no turntable, no SDK shadows).
 Skeleton from the factory's puzzle-box project (CloudAir lineage: two containers, theme, sound pool, board-input template).
@@ -16,8 +16,9 @@ floor for a 1.65 m eye), yaw only, at the first valid head pose and again on Set
   reopen the window when the window is closed); material shelf + tappable upper wall only in free light.
 - **Orb input, three ways at once**: direct pinch on the orb (system DirectPinch), eye-hand (GazePinch) and hand ray
   (RayBasedPinch) come through the board-input template (`StudioListener`, world hand travel turned into studio-local
-  travel); the controller is the app's own ray (`ControllerDrag`: drawn ray + dot, studio-local ray / sphere pick, trigger
-  grab, the orb follows the ray at its grab distance). The system's copy of a controller press the app already handled is
+  travel); the controller uses the system-drawn ray and the app's own pick (`ControllerDrag`: studio-local ray / sphere
+  pick, trigger grab, the orb follows the ray at its grab distance). Since v0.1.2 the app draws no ray or hit dot (one
+  ray per controller, D41 correction); grabbing an orb is not a tool mode, so the system ray stays on. The system's copy of a controller press the app already handled is
   ignored.
 - **Control window** (`RenderLabControl`, Planar 600 x 572 dp): native TabBar, pages 打光 / 题卡 / 设置. Every open waits
   for a level head (`LevelGate`, "look straight ahead" plate on the line of sight). Exit closes the window and the Stage,
@@ -73,6 +74,7 @@ Other: `solve`, `shoot`, `next`, `again`, `orb "<key|fill|rim> <az> <el>"` (thro
 `testf on|off` (F↑ on strip and plates), `striptex "<text>"` (writes the strip texture to files/striptex.png), `keylevels "<l> <m> <h>"`, `pointscale <k>`, `n2 on|off`, `dump`, `evidence`.
 
 ## Known
+- v0.1.2 (headset 2026-11-13): no app-drawn controller ray / hit dot, the system ray only (one per controller).
 - v0.1.1 (QA #1 rework): primary / secondary buttons 64 dp, side-by-side gap `BUTTON_GAP` 16 dp; confirm pages are a full-page card;
   stars share the overlap line in the align card; button text 叫回面前 / Recall; orb plates 16 x 3.2 cm dark pills; the
   "look straight ahead" plate is clamped to -12° pitch (`Place.levelPlate`) so it hangs above the studio.

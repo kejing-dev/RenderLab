@@ -37,7 +37,7 @@ PICO OS 6 空间应用（Full Space · Mixed Stage，Spatial SDK 6.1.9）。透�
 ## 安装
 
 ```bash
-adb install -r RenderLab-v0.1.1.apk
+adb install -r RenderLab-v0.1.2.apk
 pico-cli app launch io.embodit.renderlab
 ```
 
@@ -55,6 +55,7 @@ export JAVA_HOME=<JDK 17+>
 ## 已知问题 / 真机待核
 
 - 三种拖灯方式（手直接捏 / 手柄射线 / 眼手）只在代码路径和命中回放里验过，模拟器没有手和手柄，要真机确认
+- v0.1.2 起应用不再自己画手柄射线和落点，只用系统射线，每个手柄一条
 - 英文 3D 字条在模拟器截图里画面右半边像斜体；贴图本身是正的，疑似模拟器合成问题，真机再看
 - 摄影棚放在桌高、手够得着的地方，主体在视线下约 52°；墙顶和控制窗底部系统控件之间约 9°
 - 名牌放大后 L2 解题位「主光」牌会压住「补光」牌；自由打光和 L1 开局主光球会挡在主体前面
@@ -102,7 +103,7 @@ Screenshots and the demo video were recorded on the PICO emulator with 3D action
 ### Install
 
 ```bash
-adb install -r RenderLab-v0.1.1.apk
+adb install -r RenderLab-v0.1.2.apk
 pico-cli app launch io.embodit.renderlab
 ```
 
@@ -111,6 +112,7 @@ The APK on the Release is the unsigned `assembleRelease` build used for the Vibe
 ### Known issues / to check on the headset
 
 - The three ways to drag a light (direct pinch / controller ray / eye + pinch) are verified only through code paths and hit replay; the emulator has no hands or controller
+- Since v0.1.2 the app draws no controller ray or hit dot of its own; the system ray is the only one per controller
 - English 3D strip text looks slanted on the right half of emulator captures; the texture itself is upright, likely an emulator compositing issue
 - The studio sits at desk height within reach, so the subject is about 52° below eye level; about 9° between the wall top and the window's system controls
 - With the larger name plates, the "Key" plate covers the "Fill" plate at the L2 solution; in free lighting and at the L1 start the key orb sits in front of the subject

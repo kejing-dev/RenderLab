@@ -66,7 +66,7 @@ internal object SceneHolder {
 
 /**
  * Per Stage frame (ECS): head pose -> studio placement (first valid pose and [叫回面前], yaw only) and the window's level
- * gate; controller -> the app's own ray, orb pick and trigger drag (studio-local maths, see [ControllerDrag]).
+ * gate; controller -> system-drawn ray, the app's own orb pick and trigger drag (studio-local maths, see [ControllerDrag]).
  */
 internal class StudioDriver(private val graph: Graph, private val scene: StudioScene, private val levelWords: () -> String) {
     val ctrl = ControllerDrag(graph.flow)
@@ -300,7 +300,7 @@ internal class ControllerDrag(private val flow: LabFlow) {
 
     fun lost() { if (grabbing != null) { flow.dragEnd(); grabbing = null }; wasPressed = false; pressOwned = false }
 
-    /** Returns the ray to draw (Stage space origin, end, whether it hits something of ours). */
+    /** Returns the pick (Stage space origin, end, whether it hits something of ours); not drawn, the system draws the ray. */
     fun step(sample: io.embodit.renderlab.platform.ControllerSample, pose: io.embodit.renderlab.domain.Pose, panelOpen: Boolean, openWindow: () -> Unit): Triple<V3, V3, Boolean> {
         val o = Place.toLocal(pose, sample.origin)
         val d = Place.dirToLocal(pose, sample.dir).norm()

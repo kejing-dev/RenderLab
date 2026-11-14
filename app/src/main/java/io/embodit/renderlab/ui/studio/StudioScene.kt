@@ -163,10 +163,8 @@ internal class StudioScene(private val scope: CoroutineScope) {
 
     private lateinit var physics: PhysicsMaterialResource
 
-    // Full Space: the app-drawn controller ray, the "look straight ahead" plate, the strip as the reopen entry
-    private var ray: ModelEntity? = null
-    private var rayDot: ModelEntity? = null
-    private var rayMat: UnlitMaterial? = null
+    // Full Space: the "look straight ahead" plate, the strip as the reopen entry. No app-drawn controller ray (D41
+    // correction 2026-11-13): the system draws one ray per controller in Full Space, so the app only does the pick.
     private var levelPlate: ModelEntity? = null
     private var levelMat: UnlitMaterial? = null
     private var levelText: String? = null
@@ -176,7 +174,7 @@ internal class StudioScene(private val scope: CoroutineScope) {
     private var stripShape: ShapeResource? = null
     private var stripCollider = false
     @Volatile var studioPose: io.embodit.renderlab.domain.Pose? = null
-    @Volatile var rayView: Triple<V3, V3, Boolean>? = null
+    @Volatile var rayView: Triple<V3, V3, Boolean>? = null // controller pick (not drawn; system ray only)
     @Volatile var levelHint: Pair<V3, Q4>? = null
     @Volatile var levelWords: String = ""
 
@@ -291,10 +289,6 @@ internal class StudioScene(private val scope: CoroutineScope) {
         strip!!.addChild(ModelEntity(made.strip, stripMat!!).apply { setName("hintStripFace") })
         root.addChild(strip!!)
         stripShape = keep(ShapeResource.createBox(Vector3(Studio.STRIP_W, Studio.STRIP_H + 0.02f, 0.01f)))
-        // controller ray (app-drawn, D41) + its hit dot, in Stage space
-        rayMat = keep(Kit.unlit(0xFFFFFF, opacity = 0.7f))
-        ray = ModelEntity(made.beam, rayMat!!).apply { setName("ctrlRay"); enabled = false }.also { world.addChild(it) }
-        rayDot = ModelEntity(made.ball, keep(Kit.unlit(0xFFFFFF))).apply { setName("ctrlDot"); enabled = false }.also { world.addChild(it) }
         levelMat = keep(Kit.unlit(0xFFFFFF))
         levelPlate = ModelEntity(made.strip, levelMat!!).apply { setName("levelPlate"); enabled = false }.also { world.addChild(it) }
 
@@ -541,15 +535,8 @@ internal class StudioScene(private val scope: CoroutineScope) {
         studioPose?.let { p ->
             if (p != poseShown) { poseShown = p; root.at(p.p, p.q); root.enabled = true; Log.i(TAG, "STUDIO placed at ${p.p}") }
         }
-        // controller ray: origin -> hit (or 1.2 m), thin unlit cylinder + a 6 mm dot on a hit
-        val rv = rayView
-        if (rv == null) { ray?.enabled = false; rayDot?.enabled = false } else {
-            val (o, e, hit) = rv
-            val d = e - o
-            ray?.let { r -> r.at(o, Q4.fromTo(V3.UP, d)); r.scale(1.5f, d.length, 1.5f); r.enabled = true }
-            rayMat?.setBaseColor(rgb4(if (hit) 0xFFD27A else 0xFFFFFF))
-            rayDot?.let { r -> r.at(e, s = 0.15f); r.enabled = hit }
-        }
+        // controller: the system draws the ray (one per controller); rayView is the app's pick only (origin, end, hit),
+        // kept for the drag and the hover, never drawn
         // "look straight ahead": on the line of sight while the window waits for a level head (native-window-move §7.9)
         val lh = levelHint
         levelPlate?.let { lp ->
