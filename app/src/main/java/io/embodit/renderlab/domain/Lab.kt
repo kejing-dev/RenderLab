@@ -282,8 +282,8 @@ class LabFlow(
         place(id, az, el)
         var after = st.lights[id]
         var moved = kotlin.math.abs(after.az - cur.az) + kotlin.math.abs(after.el - cur.el) > 0.5f
-        // blocked by another light right next to it: hop over it (2–5 steps) instead of doing nothing (D43)
-        if (!moved) for (k in 2..5) {
+        // blocked by another light right next to it: hop over it (2–10 steps) instead of doing nothing (D43)
+        if (!moved) for (k in 2..10) {
             val ta = Studio.clampAz(cur.az + (az - cur.az) * k); val te = Studio.clampEl(cur.el + (el - cur.el) * k)
             if ((kotlin.math.abs(ta - cur.az) + kotlin.math.abs(te - cur.el)) > 0.5f && st.lights.canPlace(id, ta, te)) {
                 _state.value = st.copy(lights = st.lights.with(id, cur.copy(az = ta, el = te)))

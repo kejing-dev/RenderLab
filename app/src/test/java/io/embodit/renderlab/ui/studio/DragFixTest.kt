@@ -162,3 +162,24 @@ class DragFixTest {
         assertEquals(held.az, f.state.value.lights.key.az, 1e-3f)
     }
 }
+
+class ReachTest {
+    /** v0.1.3 self-test case: key at 22°/31°, rim off at 120°/50° behind: ▶ and ▲ must move the key. */
+    @org.junit.Test fun nudgeNotStuckBehindRim() {
+        val K = io.embodit.renderlab.domain.LightId.KEY
+        val l = io.embodit.renderlab.domain.Lights.DEFAULT.let { it.with(K, it.key.copy(az = 22f, el = 31f)) }
+        for (dir in io.embodit.renderlab.domain.Nudge.entries) {
+            val ok = (1..10).any { k -> val (a, e) = io.embodit.renderlab.domain.LabFlow.nudgeTarget(22f, 31f, dir); l.canPlace(K, Studio.clampAz(22f + (a - 22f) * k), Studio.clampEl(31f + (e - 31f) * k)) }
+            org.junit.Assert.assertTrue("$dir stuck", ok)
+        }
+    }
+
+    /** Every shot's target lights can be reached by dragging (pairwise clear under the v0.1.3 eye rule). */
+    @org.junit.Test fun targetsStayReachable() {
+        for (shot in io.embodit.renderlab.domain.Shots.ALL) {
+            val t = shot.solvedLights()
+            for (a in io.embodit.renderlab.domain.LightId.entries) for (b in io.embodit.renderlab.domain.LightId.entries) if (a < b && t[a].on && t[b].on)
+                org.junit.Assert.assertTrue("${shot.id} $a/$b", Studio.clearOf(t[a].az, t[a].el, t[b].az, t[b].el))
+        }
+    }
+}

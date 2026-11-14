@@ -33,6 +33,12 @@ object Studio {
     const val R = 0.24f
     /** Nominal eye (volume 1.75 m ahead, 6 cm above its centre; tangram-wood measurement). */
     val EYE = V3(0f, 0.06f, 1.75f)
+    /**
+     * Where your eye really is in studio space since v0.1.3 (Place: AHEAD out, ROOT_DY below the root). The "two orbs
+     * must not overlap as you see them" rule uses this; with the old nominal [EYE] a light behind the subject could block
+     * a front light that you saw well clear of it (v0.1.3 self-test: ▶ ▲ on the key did nothing at 22°/31°).
+     */
+    val VIEW_EYE: V3 by lazy { V3(0f, -Place.ROOT_DY, Place.AHEAD) }
 
     const val ORB_R = 0.02f
     const val HIT_R = 0.0375f
@@ -111,8 +117,8 @@ object Studio {
         val p = orbPos(az, el)
         val q = orbPos(az2, el2)
         if (angleDeg(p - C, q - C) < MIN_SEP) return false
-        val need = (atan(HIT_R / p.dist(EYE)) + atan(HIT_R / q.dist(EYE))) / D2R + 0.5f
-        return angleDeg(p - EYE, q - EYE) >= need
+        val need = (atan(HIT_R / p.dist(VIEW_EYE)) + atan(HIT_R / q.dist(VIEW_EYE))) / D2R + 0.5f
+        return angleDeg(p - VIEW_EYE, q - VIEW_EYE) >= need
     }
 
     /** A spoken readout of an orb position: "右前 40° · 高 35°" / "front-right 40° · up 35°". */
