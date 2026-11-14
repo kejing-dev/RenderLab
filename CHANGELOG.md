@@ -1,11 +1,22 @@
 # Changelog · 更新记录
 
-## v0.1.3 (2026-11-14)
-- Lights follow the hand again on the headset: drag deltas are summed (SDK sends per-event `dragAmount`).
-- 3D ▲ ▼ ◀ ▶ beside the selected light (tap or hold) as a fallback.
+## v0.1.3 · 2026-11-14
+
+- 真机上灯拖不动的问题修好了：SDK 每个拖动事件只给这一步的位移，现在先累加再移动灯，灯跟着手走、松手停住。
+- 选中的灯旁边多了 3D ▲▼◀▶ 键，点一下挪一格，按住连跳。
+- 设置里加「怎么操作」页（每个动作写手和手柄两种做法）；第一次进来台面前有一句引导。
+- 摄影棚和控制窗按启动时的眼高摆，坐着也够得着：摄影棚在右前 31°，控制窗在左前 31°（看向「看这里」牌才打开）。
+- 滑条点一下、拖一下都能换档。
+- 模拟器 QA 第 4 轮通过；三种拖灯、▲▼◀▶、左右布局坐着用的舒适度待真机确认。
+- 已知问题：首次启动字条写「控制窗关掉了」但窗口没开过；L5 / L7 开局补光藏在主光后；横拖灯会顺带抬高。
+
+- Lights follow the hand again on the headset: the SDK sends each drag event's own delta, which is now summed before moving the light.
+- 3D ▲ ▼ ◀ ▶ keys beside the selected light (tap, or hold to repeat).
 - Settings > How to use (hand and controller for every action) and a first-entry tip in front of the subject.
-- Default height follows your eye (seated or standing): subject 13° below the line of sight; studio and window side by side.
+- Studio and window follow your eye height (seated or standing): studio 31° front-right, window 31° front-left (opens when you look at the "Look here" plate).
 - Sliders follow taps and small drags, then settle on a step.
+- Emulator QA round 4 passed; the three drag methods, the step keys and seated comfort still need an on-device check.
+- Known issues: the first-launch strip says the window was closed although it never opened; in L5 / L7 the fill light starts behind the key light; a sideways drag also lifts the light.
 
 ## v0.1.2 · 2026-11-13
 

@@ -6,12 +6,14 @@
 
 桌上一个小摄影棚：拖动灯球，把石膏、茶壶、花瓶的影子打进台面上的虚线小围栏。
 
-PICO OS 6 空间应用（Full Space · Mixed Stage，Spatial SDK 6.1.9）。透视着你的房间，桌高处摆一个小摄影棚，里面有一件主体和三颗灯球（主光 / 补光 / 轮廓光）；前上方一块控制窗。全部本机运行，不联网、不需要账号。
+PICO OS 6 空间应用（Full Space · Mixed Stage，Spatial SDK 6.1.9）。透视着你的房间，右前方摆一个小摄影棚，里面有一件主体和三颗灯球（主光 / 补光 / 轮廓光）；左前方一块控制窗（看向「看这里」牌就打开）。高度跟着启动时的眼高走，坐着站着都够得着。全部本机运行，不联网、不需要账号。
 
 ## 怎么玩
 
 - 捏住灯球拖动，明暗、高光、影子实时跟着走；灯球旁边写着「右前 40° · 高 35°」
 - 三种拿法都行：手直接捏、手柄射线 + 扳机、眼睛看着 + 手指捏合
+- 拖不顺手时，点选中灯旁边的 3D ▲▼◀▶ 一格一格挪，按住连跳
+- 设置 › 怎么操作：每个动作写手和手柄两种做法
 - 台面上的虚线小围栏是这道题要的影子；影子进框，围栏变绿，[拍下] 也变绿
 - 控制窗上两条滑条调选中那盏灯的亮度和色温；对准度卡写着影子重合多少、还差哪一条
 - [拍下] 给 0–3 星，附一句「为什么这样打光」
@@ -27,17 +29,17 @@ PICO OS 6 空间应用（Full Space · Mixed Stage，Spatial SDK 6.1.9）。透�
 
 | | |
 |---|---|
-| ![](docs/shot-01.jpg) 对上了：影子进框，围栏变绿 | ![](docs/shot-02.jpg) 拖主光：灯球旁实时写方位和高度，细线是光线方向线 |
-| ![](docs/shot-03.jpg) 控制窗：对准度卡 + 亮度 / 色温滑条 | ![](docs/shot-04.jpg) 拍下：3 / 3 星，附一句为什么 |
-| ![](docs/shot-05.jpg) L6 冷暖对打：暮色背景里的青瓷茶壶 | ![](docs/shot-06.jpg) 自由打光：黑棚、夜光釉花瓶，下方换材质 |
-| ![](docs/shot-07.jpg) 题卡：8 道场面题 + 随机一题 + 自由打光 | |
+| ![](docs/shot-01.jpg) 对上了：影子进框，围栏变绿；选中的灯旁有 ▲▼◀▶ | ![](docs/shot-02.jpg) 拖主光：灯球旁实时写方位和高度，细线是光线方向线 |
+| ![](docs/shot-03.jpg) 布局：控制窗在左前、摄影棚在右前，各 31° | ![](docs/shot-04.jpg) 控制窗：对准度卡 + 亮度 / 色温滑条 |
+| ![](docs/shot-05.jpg) 设置 › 怎么操作：手和手柄两种做法 | ![](docs/shot-06.jpg) 拍下：3 / 3 星，附一句为什么 |
+| ![](docs/shot-07.jpg) 自由打光：黑棚、夜光釉花瓶，下方换材质 | |
 
 截图和演示视频在 PICO 模拟器上录制，3D 操作由调试广播驱动，**非真实手势录像**。
 
 ## 安装
 
 ```bash
-adb install -r RenderLab-v0.1.2.apk
+adb install -r RenderLab-v0.1.3.apk
 pico-cli app launch io.embodit.renderlab
 ```
 
@@ -54,11 +56,13 @@ export JAVA_HOME=<JDK 17+>
 
 ## 已知问题 / 真机待核
 
-- 三种拖灯方式（手直接捏 / 手柄射线 / 眼手）只在代码路径和命中回放里验过，模拟器没有手和手柄，要真机确认
-- v0.1.2 起应用不再自己画手柄射线和落点，只用系统射线，每个手柄一条
-- 英文 3D 字条在模拟器截图里画面右半边像斜体；贴图本身是正的，疑似模拟器合成问题，真机再看
-- 摄影棚放在桌高、手够得着的地方，主体在视线下约 52°；墙顶和控制窗底部系统控件之间约 9°
-- 名牌放大后 L2 解题位「主光」牌会压住「补光」牌；自由打光和 L1 开局主光球会挡在主体前面
+- 三种拖灯方式（手直接捏 / 手柄射线 / 眼手）、▲▼◀▶ 点按和按住连跳：模拟器没有手和手柄，只在代码、单测和逐事件回放里验过，要真机确认
+- 每个手柄只一条射线（v0.1.2 起应用不再自己画射线）
+- 第一次启动时摄影棚墙上的字条写「控制窗关掉了，点这条字重开」，其实窗口还没开过；看向左边「看这里」牌或点字条都能打开
+- L5 / L7 开局时关着的补光藏在主光后面（这两题用不到补光，挪开主光就露出来）
+- 横着拖灯时灯也会顺带抬高一点
+- 摄影棚和控制窗左右各 31°，看题卡和看灯之间要来回转头，坐着用是否舒服待真机判断
+- 英文 3D 字条在模拟器截图里像斜体；贴图本身是正的，疑似模拟器合成问题
 
 ## 致谢 / 许可
 
@@ -72,12 +76,14 @@ export JAVA_HOME=<JDK 17+>
 
 A tiny tabletop studio. Drag the lights until the shadow fills the little dashed fence on the floor.
 
-A PICO OS 6 spatial app (Full Space · Mixed Stage, Spatial SDK 6.1.9). With your room in passthrough, a small photo studio sits at desk height: one subject and three light orbs (key, fill, rim), with a control window above it. Runs fully on device: no network, no account.
+A PICO OS 6 spatial app (Full Space · Mixed Stage, Spatial SDK 6.1.9). With your room in passthrough, a small photo studio sits front-right: one subject and three light orbs (key, fill, rim); the control window sits front-left and opens when you look at the "Look here" plate. Height follows your eye at launch, seated or standing. Runs fully on device: no network, no account.
 
 ### How to play
 
 - Pinch a light orb and drag it; light, highlights and shadow follow live, and the orb shows "front-right 40° · up 35°"
 - Three ways to grab: pinch it directly, controller ray + trigger, or look at it and pinch
+- If dragging is awkward, tap the 3D ▲▼◀▶ keys beside the selected light (hold to repeat)
+- Settings > How to use: every action with hand and controller
 - The dashed fence on the floor is the shadow this shot wants; get the shadow in and the fence turns green, so does [Shoot]
 - Two sliders on the control window set brightness and colour temperature of the selected light; the alignment card says how much the shadow overlaps and what is still missing
 - [Shoot] gives 0–3 stars and one line on why the light works
@@ -93,17 +99,17 @@ A PICO OS 6 spatial app (Full Space · Mixed Stage, Spatial SDK 6.1.9). With you
 
 | | |
 |---|---|
-| ![](docs/shot-en-01.jpg) That's it: the shadow is in, the fence turns green | ![](docs/shot-en-02.jpg) Dragging the key light: angle and height next to the orb |
-| ![](docs/shot-en-03.jpg) Control window: alignment card + brightness / colour sliders | ![](docs/shot-en-04.jpg) Shot taken: 3 / 3 stars and why |
-| ![](docs/shot-en-05.jpg) L6 Warm meets cool: a celadon teapot against dusk | ![](docs/shot-en-06.jpg) Free lighting: glow-glaze vase in the black studio, material tray below |
-| ![](docs/shot-en-07.jpg) Shot cards: 8 shots + random + free lighting | |
+| ![](docs/shot-en-01.jpg) That's it: the shadow is in, the fence turns green; ▲▼◀▶ beside the selected light | ![](docs/shot-en-02.jpg) Dragging the key light: angle and height next to the orb |
+| ![](docs/shot-en-03.jpg) Layout: window front-left, studio front-right, 31° each | ![](docs/shot-en-04.jpg) Control window: alignment card + brightness / colour sliders |
+| ![](docs/shot-en-05.jpg) Settings > How to use: hand and controller | ![](docs/shot-en-06.jpg) Shot taken: 3 / 3 stars and why |
+| ![](docs/shot-en-07.jpg) Free lighting: glow-glaze vase in the black studio, material tray below | |
 
 Screenshots and the demo video were recorded on the PICO emulator with 3D actions driven by debug broadcasts. **Not a real hand-gesture recording.**
 
 ### Install
 
 ```bash
-adb install -r RenderLab-v0.1.2.apk
+adb install -r RenderLab-v0.1.3.apk
 pico-cli app launch io.embodit.renderlab
 ```
 
@@ -111,11 +117,13 @@ The APK on the Release is the unsigned `assembleRelease` build used for the Vibe
 
 ### Known issues / to check on the headset
 
-- The three ways to drag a light (direct pinch / controller ray / eye + pinch) are verified only through code paths and hit replay; the emulator has no hands or controller
-- Since v0.1.2 the app draws no controller ray or hit dot of its own; the system ray is the only one per controller. See [CHANGELOG.md](CHANGELOG.md) for all versions
-- English 3D strip text looks slanted on the right half of emulator captures; the texture itself is upright, likely an emulator compositing issue
-- The studio sits at desk height within reach, so the subject is about 52° below eye level; about 9° between the wall top and the window's system controls
-- With the larger name plates, the "Key" plate covers the "Fill" plate at the L2 solution; in free lighting and at the L1 start the key orb sits in front of the subject
+- The three ways to drag a light (direct pinch / controller ray / eye + pinch) and the ▲▼◀▶ keys (tap and hold) are verified only through code, unit tests and per-event replay; the emulator has no hands or controller
+- One ray per controller (since v0.1.2 the app draws no ray of its own)
+- On the very first launch the studio strip says "Window closed, tap here to reopen" although the window has never opened; look at the "Look here" plate on the left or tap the strip to open it
+- In L5 / L7 the switched-off fill light starts hidden behind the key light (neither shot needs it; move the key light to reveal it)
+- Dragging a light sideways also lifts it a little
+- Studio and window sit 31° to each side, so you turn your head between them; seated comfort still to be judged on the headset
+- English 3D strip text looks slanted in emulator captures; the texture itself is upright, likely an emulator compositing issue
 
 ### Credits / licences
 
