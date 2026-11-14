@@ -154,6 +154,38 @@ internal object Tex {
         return b
     }
 
+    /** A dark plate of aspect [aspect] (w / h) with centred white words, up to two lines (the tip, the "look here" plate). */
+    fun plate(text: String, aspect: Float, testF: Boolean = false): Bitmap {
+        val h = 192; val w = 1024.coerceAtMost(Math.round(h * aspect / 64f) * 64).let { if (it < 256) 256 else it }
+        val hh = Math.round(w / aspect)
+        val b = Bitmap.createBitmap(w, hh, Bitmap.Config.ARGB_8888)
+        val c = Canvas(b)
+        c.drawColor(android.graphics.Color.rgb(0x22, 0x26, 0x2B))
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; textSize = hh * 0.56f; typeface = font(); textAlign = Paint.Align.CENTER }
+        val t = if (testF) "F↑ $text" else text
+        while (p.measureText(t) > w - 40 && p.textSize > hh * 0.34f) p.textSize -= 1f
+        if (p.measureText(t) > w - 40) Log.w(TAG, "OVERFLOW plate \"$t\"")
+        c.drawText(t, w / 2f, hh / 2f - (p.ascent() + p.descent()) / 2, p)
+        return b
+    }
+
+    /** D53 step button face: a white arrow on a dark square (image up = +Y, checked with `testf`). */
+    fun arrow(dir: io.embodit.renderlab.domain.Nudge): Bitmap {
+        val s = 128
+        val b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
+        val c = Canvas(b)
+        c.drawColor(android.graphics.Color.rgb(0x22, 0x26, 0x2B))
+        val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.argb(150, 255, 255, 255); style = Paint.Style.STROKE; strokeWidth = 6f }
+        c.drawRoundRect(5f, 5f, s - 5f, s - 5f, 22f, 22f, ring)
+        // an up-pointing triangle in bitmap space (y down), rotated for the other directions
+        val path = android.graphics.Path().apply { moveTo(64f, 30f); lineTo(100f, 88f); lineTo(28f, 88f); close() }
+        val deg = when (dir) { io.embodit.renderlab.domain.Nudge.UP -> 0f; io.embodit.renderlab.domain.Nudge.RIGHT -> 90f; io.embodit.renderlab.domain.Nudge.DOWN -> 180f; io.embodit.renderlab.domain.Nudge.LEFT -> 270f }
+        c.save(); c.rotate(deg, 64f, 64f)
+        c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE })
+        c.restore()
+        return b
+    }
+
     fun halo(): Bitmap {
         val s = 128
         val b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)

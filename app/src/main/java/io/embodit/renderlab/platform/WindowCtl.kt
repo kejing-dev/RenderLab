@@ -46,14 +46,24 @@ class WindowCtl {
         main.postDelayed(watchdog, 3_000L)
     }
 
-    /** Every Stage frame: head pitch in degrees (+ up), null without a valid head pose. */
-    fun stepGate(now: Long, pitchDeg: Float?) {
+    /**
+     * Every Stage frame: head pitch in degrees (+ up), null without a valid head pose; [yawOffDeg] how far you look away
+     * from the window's spot beside the studio (v0.1.3 side by side). Returns the reason when the window goes out now.
+     */
+    fun stepGate(now: Long, pitchDeg: Float?, yawOffDeg: Float? = null): String? {
         lastStepMs = now
-        val hint = gate.hintWanted(pitchDeg)
-        if (hint != levelHint) Log.i(TAG, "LEVEL hint=$hint pitch=${pitchDeg?.let { "%.1f".format(it) }}")
+        val hint = gate.hintWanted(pitchDeg, yawOffDeg) || (gate.waiting && pitchDeg == null)
+        if (hint != levelHint) Log.i(TAG, "LEVEL hint=$hint pitch=${pitchDeg?.let { "%.1f".format(it) }} yawOff=${yawOffDeg?.let { "%.1f".format(it) }}")
         levelHint = hint
-        gate.step(now, pitchDeg)?.let { levelHint = false; Log.i(TAG, "LEVEL ok pitch=${pitchDeg?.let { p -> "%.1f".format(p) }} -> open"); openNow(it) }
+        val why = gate.step(now, pitchDeg, yawOffDeg) ?: return null
+        levelHint = false
+        Log.i(TAG, "LEVEL ok pitch=${pitchDeg?.let { p -> "%.1f".format(p) }} yawOff=${yawOffDeg?.let { "%.1f".format(it) }} -> open")
+        openNow(why)
+        return why
     }
+
+    /** Debug `level`: open now, whatever the head does (QA screenshots on an emulator whose head cannot turn). */
+    fun forceOpen() { val why = gate.pending ?: return; gate.cancel(); levelHint = false; openNow("$why/forced") }
 
     private fun openNow(why: String) {
         main.removeCallbacks(watchdog)

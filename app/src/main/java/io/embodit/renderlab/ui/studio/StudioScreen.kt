@@ -69,22 +69,40 @@ internal object SceneHolder {
  * gate; controller -> system-drawn ray, the app's own orb pick and trigger drag (studio-local maths, see [ControllerDrag]).
  */
 internal class StudioDriver(private val graph: Graph, private val scene: StudioScene, private val levelWords: () -> String) {
-    val ctrl = ControllerDrag(graph.flow)
+    /** One hold-to-repeat for the ▲▼◀▶, shared by the hand / gaze path (StudioListener) and the controller ray. */
+    val repeat = NudgeRepeat(graph.flow)
+    val ctrl = ControllerDrag(graph.flow, repeat)
     private var lastHeadLog = 0L
 
     fun frame() {
+        repeat.tick()
         val now = android.os.SystemClock.elapsedRealtime()
         val head = graph.tracking.head.pose()
         if (head != null && graph.recallStudio) {
             graph.recallStudio = false
             graph.studioPose = Place.studio(head.first, head.second)
-            Log.i(TAG, "PLACE studio head=${head.first} pitch=${"%.1f".format(Place.pitchDeg(head.second))} -> ${graph.studioPose!!.p}")
+            graph.windowDir = Place.windowDir(head.second)
+            Log.i(TAG, "PLACE studio head=${head.first} pitch=${"%.1f".format(Place.pitchDeg(head.second))} -> ${graph.studioPose!!.p} eyeDy=${"%.3f".format(Place.ROOT_DY)} window dir=${graph.windowDir}")
         }
         if (head != null && now - lastHeadLog > 5000) { lastHeadLog = now; Log.i(TAG, "HEAD ${head.first} pitch=${"%.1f".format(Place.pitchDeg(head.second))}") }
-        graph.window.stepGate(now, head?.let { Place.pitchDeg(it.second) })
+        val wdir = graph.windowDir
+        val yawOff = if (head != null && wdir != null) Place.yawOff(head.second, wdir) else null
+        val opened = graph.window.stepGate(now, head?.let { Place.pitchDeg(it.second) }, yawOff)
+        // start / recall: the window opens where you actually look (within ±6° of its spot), so the studio is turned
+        // with it to keep the side-by-side gap exact (a few degrees, before you start working)
+        if (opened != null && head != null && (opened.startsWith("start") || opened.startsWith("recall")) && graph.studioPose != null) {
+            Place.flatForward(head.second)?.let { f ->
+                val p = graph.studioPose!!
+                val keepY = p.p.y
+                val re = Place.studioAt(head.first, Place.yawed(f, -(Place.STUDIO_SIDE_DEG + Place.WINDOW_SIDE_DEG)))
+                graph.studioPose = io.embodit.renderlab.domain.Pose(V3(re.p.x, keepY, re.p.z), re.q)
+                graph.windowDir = f
+                Log.i(TAG, "PLACE studio re-aimed beside the window (opened at yawOff=${yawOff?.let { "%.1f".format(it) }}) -> ${graph.studioPose!!.p}")
+            }
+        }
         scene.studioPose = graph.studioPose
-        // the level plate: on the line of sight (pitch clamped to -12°..40°, above the studio), 0.75 m, upright (D9)
-        scene.levelHint = if (graph.window.levelHint && head != null) Place.levelPlate(head.first, head.second).let { it.p to it.q } else null
+        // the "look here" plate: where the window opens (beside the studio), eye height, 0.75 m, upright (D9)
+        scene.levelHint = if (graph.window.levelHint && head != null) Place.levelPlate(head.first, wdir ?: Place.windowDir(head.second)).let { it.p to it.q } else null
         scene.levelWords = levelWords()
         val pose = graph.studioPose
         val sample = graph.tracking.controller.sample()
@@ -125,7 +143,7 @@ fun StudioScreen() {
         owner.lifecycle.addObserver(obs)
         onDispose { owner.lifecycle.removeObserver(obs) }
     }
-    val levelWords = remember(context, settings.language) { context.localized(settings.language).getString(R.string.look_level) }
+    val levelWords = remember(context, settings.language) { context.localized(settings.language).getString(R.string.look_window) }
     val driver = remember(scene) { StudioDriver(graph, scene) { SceneHolder.levelWordsNow } }
     SceneHolder.levelWordsNow = levelWords
     DisposableEffect(scene) {
@@ -153,7 +171,7 @@ fun StudioScreen() {
     SpatialView(
         modifier = Modifier
             .fillMaxSize()
-            .boardInput(remember { StudioTargets() }, remember(graph, scene) { StudioListener(graph.flow, scene, { v -> graph.studioPose?.let { Place.dirToLocal(it, v) } ?: v }, { driver.ctrl.owns() }, { graph.window.open("strip") }) }, BoardInputConfig(dragStartM = 0.012f, logTag = TAG)),
+            .boardInput(remember { StudioTargets() }, remember(graph, scene) { StudioListener(graph.flow, scene, { v -> graph.studioPose?.let { Place.dirToLocal(it, v) } ?: v }, { driver.ctrl.owns() }, { graph.window.open("strip") }, driver.repeat) }, BoardInputConfig(dragStartM = 0.012f, logTag = TAG)),
         initial = { content, _ ->
             content.addEntity(scene.world)
             val t0 = android.os.SystemClock.elapsedRealtime()
@@ -189,7 +207,7 @@ internal fun sceneTexts(st: LabState, panelOpen: Boolean, s: (Int, Array<Any>) -
         st.matched -> s(R.string.strip_matched, emptyArray())
         else -> stripHint(st, s)
     }
-    return SceneTexts(strip, names, zh, SceneHolder.testF)
+    return SceneTexts(strip, names, zh, SceneHolder.testF, s(R.string.guide_drag, emptyArray()))
 }
 
 /** First hint: the key light's direction while the shadow is out, then the first failed check. */
@@ -234,7 +252,11 @@ internal class StudioTargets : TargetResolver<String> by TargetResolver.byName(:
     }
 }
 
-/** Every resolved tap / drag goes through [routeTap] / [LabFlow] (the same calls the window and the debug broadcast make). */
+/**
+ * Every resolved tap / drag goes through [routeTap] / [LabFlow] (the same calls the window and the debug broadcast make).
+ * Drag: the summed hand travel (BoardInput adds up the per-event `dragAmount`) turned into studio axes, x [gain]; the
+ * light is put back on its orbit every event, so it follows the hand frame by frame.
+ */
 internal class StudioListener(
     private val flow: LabFlow,
     private val scene: StudioScene?,
@@ -243,33 +265,95 @@ internal class StudioListener(
     /** The app's own controller ray is handling this trigger press: ignore the system's copy of it. */
     private val controllerOwned: () -> Boolean = { false },
     private val openWindow: () -> Unit = {},
+    private val repeat: NudgeRepeat = NudgeRepeat(flow),
 ) : BoardInputListener<String> {
     private var dragging = false
+    private var gain = 1f
 
     private fun skip(source: InputSource) = source == InputSource.CONTROLLER && controllerOwned()
 
     override fun onTap(target: String?, source: InputSource, position: Offset3D?) {
         if (skip(source)) return
         BoardInputLog.write(TAG, "INPUT tap src=${source.label} target=$target -> ${StudioNames.hitOf(target)}")
+        val h = StudioNames.hitOf(target)
+        // a held ▲▼◀▶ already stepped on the press: the tap that closes the same press is not a second step
+        if (h is StudioNames.NudgeHit && repeat.steppedRecently()) return
         routeTap(flow, target, openWindow)
     }
+
+    override fun onPress(target: String?, source: InputSource) {
+        if (skip(source)) return
+        val h = StudioNames.hitOf(target) as? StudioNames.NudgeHit ?: return
+        BoardInputLog.write(TAG, "INPUT press src=${source.label} target=$target -> $h (hold repeats)")
+        repeat.press(h.dir)
+    }
+
+    override fun onRelease() { repeat.release() }
 
     override fun onDragStart(target: String, source: InputSource): Boolean {
         if (skip(source)) return false
         BoardInputLog.write(TAG, "INPUT drag src=${source.label} target=$target -> ${StudioNames.hitOf(target)}")
-        val h = StudioNames.hitOf(target) as? StudioNames.OrbHit ?: run { routeTap(flow, target, openWindow); return true }
+        val hit = StudioNames.hitOf(target)
+        if (hit is StudioNames.NudgeHit) return false // a held step button keeps repeating, it is not dragged
+        val h = hit as? StudioNames.OrbHit ?: run { routeTap(flow, target, openWindow); return true }
+        gain = dragGain(source)
         dragging = flow.dragStart(h.id)
         return true
     }
 
-    override fun onDragMove(totalM: Offset3M) { if (dragging) flow.dragMove(toLocal(V3(totalM.x, totalM.y, totalM.z))) }
+    override fun onDragMove(totalM: Offset3M) { if (dragging) flow.dragMove(toLocal(V3(totalM.x, totalM.y, totalM.z)) * gain) }
 
-    override fun onDragEnd() { if (dragging) flow.dragEnd(); dragging = false }
+    override fun onDragEnd() {
+        if (dragging) { flow.dragEnd(); flow.state.value.lights.let { BoardInputLog.write(TAG, "INPUT drag end -> key ${it.key.az.toInt()}/${it.key.el.toInt()} fill ${it.fill.az.toInt()}/${it.fill.el.toInt()} rim ${it.rim.az.toInt()}/${it.rim.el.toInt()}") } }
+        dragging = false
+    }
 
     override fun onDragCancel() { if (dragging) flow.dragCancel(); dragging = false }
 
     /** D50 hover: a hint only, never a state change. */
     override fun onHover(target: String?, source: InputSource) { scene?.setHover(target) }
+
+    companion object {
+        /**
+         * Direct pinch / poke: the light stays under the fingers (1:1). Hand ray / eye-hand: the hand moves near the
+         * body while the light is ~0.7 m out, so travel is doubled (D1 "距离增益 1–6 倍").
+         */
+        fun dragGain(source: InputSource): Float = when (source) {
+            InputSource.DIRECT, InputSource.POKE -> 1f
+            else -> 2f
+        }
+    }
+}
+
+/**
+ * Hold-to-repeat for the 3D ▲▼◀▶ (D53 "按住连跳"): one step on the press, then every [EVERY_MS] after [FIRST_MS]
+ * until release. [tick] is called from the per-frame driver so no extra thread or timer is needed.
+ */
+internal class NudgeRepeat(private val flow: LabFlow, private val clock: () -> Long = { android.os.SystemClock.uptimeMillis() }) {
+    private var held: io.embodit.renderlab.domain.Nudge? = null
+    private var nextAt = 0L
+    private var steppedAt = -10_000L
+
+    fun press(dir: io.embodit.renderlab.domain.Nudge) {
+        held = dir
+        step(dir)
+        nextAt = clock() + FIRST_MS
+    }
+
+    fun release() { held = null }
+
+    /** True right after a press stepped (the system may still send a tap for that same press). */
+    fun steppedRecently(): Boolean = clock() - steppedAt < 700L
+
+    fun tick() {
+        val d = held ?: return
+        val now = clock()
+        if (now >= nextAt) { step(d); nextAt = now + EVERY_MS }
+    }
+
+    private fun step(dir: io.embodit.renderlab.domain.Nudge) { steppedAt = clock(); flow.nudge(dir) }
+
+    companion object { const val FIRST_MS = 420L; const val EVERY_MS = 140L }
 }
 
 /** Holder name -> the one flow call. */
@@ -277,6 +361,7 @@ internal fun routeTap(flow: LabFlow, name: String?, openWindow: () -> Unit = {})
     when (val h = StudioNames.hitOf(name)) {
         is StudioNames.OrbHit -> flow.tapOrb(h.id)
         is StudioNames.SwatchHit -> flow.setMaterial(MaterialId.entries[h.index])
+        is StudioNames.NudgeHit -> flow.nudge(h.dir)
         StudioNames.WallHit -> flow.cycleBackdrop()
         StudioNames.StripHit -> { Log.i(TAG, "STRIP tap -> open window"); openWindow() }
         StudioNames.NoHit -> Unit
@@ -288,17 +373,19 @@ internal fun routeTap(flow: LabFlow, name: String?, openWindow: () -> Unit = {})
  * upper wall; the strip while the window is closed); trigger press on an orb grabs it, the orb follows the ray at its
  * grab distance (put back on the orb sphere, clamped), release drops it where it is (D1).
  */
-internal class ControllerDrag(private val flow: LabFlow) {
+internal class ControllerDrag(private val flow: LabFlow, private val repeat: NudgeRepeat = NudgeRepeat(flow)) {
     private var wasPressed = false
     private var grabbing: LightId? = null
     private var grabT = 0f
     private var ownUntil = 0L
     private var pressOwned = false
+    private var grabFrom = 0f to 0f
+    private var moves = 0
 
     /** True while this press (or the 300 ms after it) was handled here. */
     fun owns(): Boolean = pressOwned || android.os.SystemClock.uptimeMillis() < ownUntil
 
-    fun lost() { if (grabbing != null) { flow.dragEnd(); grabbing = null }; wasPressed = false; pressOwned = false }
+    fun lost() { repeat.release(); if (grabbing != null) { flow.dragEnd(); grabbing = null }; wasPressed = false; pressOwned = false }
 
     /** Returns the pick (Stage space origin, end, whether it hits something of ours); not drawn, the system draws the ray. */
     fun step(sample: io.embodit.renderlab.platform.ControllerSample, pose: io.embodit.renderlab.domain.Pose, panelOpen: Boolean, openWindow: () -> Unit): Triple<V3, V3, Boolean> {
@@ -309,6 +396,16 @@ internal class ControllerDrag(private val flow: LabFlow) {
         fun consider(name: String, t: Float?) { if (t != null && (best == null || t < best!!.second)) best = name to t }
         val touch = st.phase == Phase.LIGHTING || st.phase == Phase.FREE || st.phase == Phase.WELCOME
         if (touch) for (id in LightId.entries) consider(StudioNames.orb(id), raySphere(o, d, st.lights[id].pos, Studio.HIT_R))
+        // D53 step buttons beside the selected light (upright squares facing +Z)
+        if (touch && st.dragging == null && grabbing == null && d.z < -1e-4f) {
+            val orb = st.lights[st.selected].pos
+            for (n in io.embodit.renderlab.domain.Nudge.entries) {
+                val c = Studio.nudgePos(orb, n)
+                val t = (c.z - o.z) / d.z
+                val p = o + d * t
+                if (t > 0 && kotlin.math.abs(p.x - c.x) <= Studio.NUDGE_HIT / 2 && kotlin.math.abs(p.y - c.y) <= Studio.NUDGE_HIT / 2) consider(StudioNames.nudge(n), t)
+            }
+        }
         if (st.phase == Phase.FREE) {
             for (i in 0 until 5) consider(StudioNames.swatch(i), raySphere(o, d, V3(Studio.SWATCH_X[i], Studio.SWATCH_Y, Studio.SWATCH_Z), Studio.SWATCH_HIT_R))
             if (d.z < -1e-4f) { val t = (Studio.WZ - o.z) / d.z; val p = o + d * t; if (t > 0 && p.y > Studio.WALL_TAP_MIN_Y && p.y < Studio.WALL_TOP && kotlin.math.abs(p.x) < 0.33f) consider(StudioNames.WALL, t) }
@@ -321,12 +418,22 @@ internal class ControllerDrag(private val flow: LabFlow) {
                 pressOwned = true
                 BoardInputLog.write(TAG, "INPUT ctrl-ray press target=${hit.first} -> ${StudioNames.hitOf(hit.first)}")
                 val h = StudioNames.hitOf(hit.first)
-                if (h is StudioNames.OrbHit && flow.dragStart(h.id)) { grabbing = h.id; grabT = hit.second } else routeTap(flow, hit.first, openWindow)
+                when {
+                    h is StudioNames.OrbHit && flow.dragStart(h.id) -> { grabbing = h.id; grabT = hit.second; grabFrom = st.lights[h.id].let { it.az to it.el }; moves = 0 }
+                    h is StudioNames.NudgeHit -> repeat.press(h.dir)
+                    else -> routeTap(flow, hit.first, openWindow)
+                }
             }
         }
-        if (pressed && grabbing != null) flow.dragTo(o + d * grabT)
+        if (pressed && grabbing != null) { flow.dragTo(o + d * grabT); moves++ }
         if (!pressed && wasPressed) {
-            if (grabbing != null) { flow.dragEnd(); grabbing = null }
+            repeat.release()
+            grabbing?.let { id ->
+                flow.dragEnd()
+                val l = flow.state.value.lights[id]
+                BoardInputLog.write(TAG, "INPUT ctrl-ray release $id ${grabFrom.first.toInt()}/${grabFrom.second.toInt()} -> ${l.az.toInt()}/${l.el.toInt()} frames=$moves")
+                grabbing = null
+            }
             if (pressOwned) ownUntil = android.os.SystemClock.uptimeMillis() + 300
             pressOwned = false
         }

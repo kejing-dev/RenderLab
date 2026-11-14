@@ -14,7 +14,9 @@ class PlaceTest {
     private fun rot(yawDeg: Float, pitchDeg: Float, rollDeg: Float = 0f) =
         Q4.axis(V3.UP, yawDeg * Studio.D2R) * Q4.axis(V3(1f, 0f, 0f), pitchDeg * Studio.D2R) * Q4.axis(V3(0f, 0f, 1f), rollDeg * Studio.D2R)
 
-    /** Head down 30° / up 30° / tilted 20°: the studio stays upright, same spot, 0.70 m ahead, 0.60 m below the eye. */
+    private fun below(eye: V3, w: V3) = atan((eye.y - w.y) / sqrt((w.x - eye.x) * (w.x - eye.x) + (w.z - eye.z) * (w.z - eye.z))) / Studio.D2R
+
+    /** Head down 30° / up 30° / tilted 20°: the studio stays upright, same spot, AHEAD out, ROOT_DY from the eye. */
     @Test fun uprightUnderPitchAndRoll() {
         val level = Place.studio(head, rot(0f, 0f))
         for ((p, r) in listOf(-30f to 0f, 30f to 0f, 0f to 20f, -30f to 20f)) {
@@ -24,7 +26,7 @@ class PlaceTest {
         }
         val flat = V3(level.p.x - head.x, 0f, level.p.z - head.z)
         assertEquals(Place.AHEAD, flat.length, 1e-3f)
-        assertEquals(head.y - Place.BELOW_EYE, level.p.y, 1e-4f)
+        assertEquals(head.y + Place.ROOT_DY, level.p.y, 1e-4f)
     }
 
     /** Four sides: whichever way you face, the studio's user side (+Z) points back at you (< 1°). */
@@ -33,13 +35,12 @@ class PlaceTest {
             val s = Place.studio(head, rot(yaw, -15f))
             val toUser = V3(head.x - s.p.x, 0f, head.z - s.p.z).norm()
             assertTrue("yaw $yaw", Studio.angleDeg(s.q.rotate(V3(0f, 0f, 1f)), toUser) < 1f)
-            // local / world round trip
             val w = Place.toWorld(s, V3(0.1f, -0.2f, 0.05f))
             assertEquals(0f, Place.toLocal(s, w).dist(V3(0.1f, -0.2f, 0.05f)), 1e-4f)
         }
     }
 
-    /** Front orbs within arm reach (direct pinch), the farthest still >= 2° for the ray (D17), all below the eye. */
+    /** Front orbs within arm reach (direct pinch), the farthest still >= 2° for the ray (D17). */
     @Test fun reachAndSize() {
         val s = Place.studio(head, rot(0f, 0f))
         var near = Float.MAX_VALUE; var far = 0f
@@ -48,56 +49,91 @@ class PlaceTest {
             val d = w.dist(head)
             near = minOf(near, d); far = maxOf(far, d)
             assertTrue(2 * atan(Studio.HIT_R / d) / Studio.D2R >= 2f)
-            assertTrue(w.y < head.y)
         }
-        assertTrue("nearest orb $near m", near < 0.80f)
+        assertTrue("nearest orb $near m", near < 0.62f)
         println("orb distance from the eye: $near .. $far m")
     }
 
-    /** The studio's top (wall top) sits below the window, whose centre opens at eye level straight ahead. */
-    @Test fun studioBelowWindow() {
-        val s = Place.studio(head, rot(0f, 0f))
-        val top = Place.toWorld(s, V3(0f, Studio.WALL_TOP, Studio.WZ))
-        val dist = sqrt((top.x - head.x) * (top.x - head.x) + (top.z - head.z) * (top.z - head.z))
-        val deg = atan((head.y - top.y) / dist) / Studio.D2R
-        println("wall top ${"%.1f".format(deg)}° below the eye")
-        assertTrue(deg > 15f)
+    /**
+     * D54 (headset 2026-11-14, seated): heights follow the eye, not the floor. Seated eye 1.2 m and standing 1.6 m:
+     * subject centre 10–15° below the line of sight; the window (opens on the line of sight once level, 572 dp at
+     * ~0.057°/dp, system controls ~77 dp under it) keeps its bottom edge above -35°; nothing under the floor.
+     */
+    @Test fun seatedAndStandingHeights() {
+        for (eyeY in listOf(1.2f, 1.6f)) {
+            val eye = V3(0f, eyeY, 0f)
+            for (pitch in listOf(0f, -25f, 15f)) {
+                val s = Place.studio(eye, rot(0f, pitch))
+                val subj = below(eye, Place.toWorld(s, Place.SUBJECT_C))
+                assertTrue("eye $eyeY pitch $pitch: subject $subj° below", subj in 10f..15f)
+                val floor = Place.toWorld(s, V3(0f, Studio.FY - 0.02f, 0f))
+                assertTrue("studio above the floor", floor.y > 0.3f)
+            }
+            val windowBottom = -(WIN_H_DP / 2 + WIN_CTRL_DP) * DEG_PER_DP
+            assertTrue("window bottom $windowBottom°", windowBottom >= -35f)
+            println("eye $eyeY m: subject centre ${"%.1f".format(below(eye, Place.toWorld(Place.studio(eye, rot(0f, 0f)), Place.SUBJECT_C)))}° below, studio floor ${"%.2f".format(Place.toWorld(Place.studio(eye, rot(0f, 0f)), V3(0f, Studio.FY, 0f)).y)} m above the floor, window bottom ${"%.1f".format(windowBottom)}°")
+        }
     }
 
     /**
-     * QA #1: the "look straight ahead" plate must not cover the studio while you look down at it. Head down 20-60°
-     * (also turned ±30° away from the studio): the plate's bottom edge stays >= 1° above the wall-top strip and above
-     * the highest orb name plate; looking level it is on the line of sight.
+     * D41 / D54 side by side: from the eye, every part of the studio (box, wall, orb name plates and ▲▼◀▶ over the
+     * whole orb reach) is >= 10° from the window frame (incl. its system controls and TabBar) either sideways or below.
      */
-    @Test fun levelPlateClearsStudio() {
-        val s = Place.studio(head, rot(0f, 0f))
-        fun below(w: V3) = atan((head.y - w.y) / sqrt((w.x - head.x) * (w.x - head.x) + (w.z - head.z) * (w.z - head.z))) / Studio.D2R
-        val stripTop = below(Place.toWorld(s, Studio.STRIP_C + V3(0f, Studio.STRIP_H / 2, 0f)))
-        var plateTop = 90f
+    @Test fun windowBesideStudio() {
+        val eye = V3(0f, 1.2f, 0f)
+        val s = Place.studio(eye, rot(0f, 0f))
+        val wdir = Place.windowDir(rot(0f, 0f))
+        val halfW = WIN_W_DP / 2 * DEG_PER_DP
+        val bottom = -(WIN_H_DP / 2 + WIN_CTRL_DP) * DEG_PER_DP
+        val top = (WIN_H_DP / 2 + WIN_TAB_DP) * DEG_PER_DP
+        val pts = ArrayList<V3>()
+        for (i in 0..20) for (j in 0..20) {
+            val x = -0.335f + 0.67f * i / 20f
+            pts += V3(x, Studio.FY - 0.02f + (Studio.WALL_TOP - Studio.FY + 0.02f) * j / 20f, Studio.WZ - 0.01f)
+            pts += V3(x, Studio.FY - 0.02f, Studio.WZ + (Studio.ZF - Studio.WZ) * j / 20f)
+        }
         for (az in -135..135 step 5) for (el in 10..80 step 5) {
             val o = Studio.orbPos(az.toFloat(), el.toFloat())
-            plateTop = minOf(plateTop, below(Place.toWorld(s, o + V3(0f, Studio.LABEL_DY + Studio.LABEL_H / 2, 0f))))
+            for (dx in listOf(-Studio.LABEL_W / 2, Studio.LABEL_W / 2)) pts += o + V3(dx, Studio.LABEL_DY + Studio.LABEL_H / 2, 0f)
+            for (n in Nudge.entries) for (dx in listOf(-1f, 1f)) for (dy in listOf(-1f, 1f)) pts += Studio.nudgePos(o, n) + V3(dx * Studio.NUDGE_S / 2, dy * Studio.NUDGE_S / 2, 0f)
         }
-        for (pitch in listOf(-20f, -35f, -45f, -60f)) {
-            val lp = Place.levelPlate(head, rot(0f, pitch))
-            val bottom = below(lp.p - V3(0f, Studio.STRIP_H / 2, 0f))
-            assertTrue("pitch $pitch: plate bottom $bottom° vs strip top $stripTop°", bottom + 1f <= stripTop)
-            assertTrue("pitch $pitch: plate bottom $bottom° vs orb plates $plateTop°", bottom + 1f <= plateTop)
-            assertEquals(1f, lp.q.rotate(V3.UP).dot(V3.UP), 1e-4f)
+        var worst = 999f
+        for (p in pts) {
+            val w = Place.toWorld(s, p)
+            val flat = V3(w.x - eye.x, 0f, w.z - eye.z).norm()
+            val side = -Place.yawBetween(wdir, flat) // + = to the right of the window centre
+            val el = -below(eye, w)
+            val sideGap = side - halfW
+            val belowGap = bottom - el
+            val aboveGap = el - top
+            val gap = maxOf(sideGap, belowGap, aboveGap)
+            worst = minOf(worst, gap)
         }
-        val level = Place.levelPlate(head, rot(0f, 0f))
-        assertEquals(head.y, level.p.y, 1e-4f)
-        println("level plate bottom at -45°: ${"%.1f".format(below(Place.levelPlate(head, rot(0f, -45f)).p - V3(0f, Studio.STRIP_H / 2, 0f)))}° below the eye; strip top $stripTop°, highest orb plate $plateTop°")
+        println("studio vs window frame: closest ${"%.1f".format(worst)}° (studio ${Place.STUDIO_SIDE_DEG}° right, window ${Place.WINDOW_SIDE_DEG}° left)")
+        assertTrue("studio $worst° from the window", worst >= 10f)
     }
 
-    /** QA #1 asked whether the subject can come up: print the eye-down angles used in ui-audit §0 (no assertion). */
-    @Test fun subjectAngleReport() {
-        val s = Place.studio(head, rot(0f, 0f))
-        fun below(w: V3) = atan((head.y - w.y) / sqrt((w.x - head.x) * (w.x - head.x) + (w.z - head.z) * (w.z - head.z))) / Studio.D2R
-        val subj = below(Place.toWorld(s, V3(0f, Studio.FY, -0.10f)))
-        val subjMid = below(Place.toWorld(s, V3(0f, Studio.FY + 0.08f, -0.10f)))
-        val wallTop = below(Place.toWorld(s, V3(0f, Studio.WALL_TOP, Studio.WZ)))
-        println("subject base ${"%.1f".format(subj)}°, subject middle ${"%.1f".format(subjMid)}°, wall top ${"%.1f".format(wallTop)}° below the eye")
+    /** The "look here" plate sits where the window opens: on the window's direction, eye height, upright. */
+    @Test fun lookHerePlate() {
+        val wdir = Place.windowDir(rot(20f, -30f))
+        val lp = Place.levelPlate(head, wdir)
+        assertEquals(head.y, lp.p.y, 1e-4f)
+        assertEquals(1f, lp.q.rotate(V3.UP).dot(V3.UP), 1e-4f)
+        val flat = V3(lp.p.x - head.x, 0f, lp.p.z - head.z).norm()
+        assertTrue(Studio.angleDeg(flat, wdir) < 0.5f)
+        assertTrue(Studio.angleDeg(lp.q.rotate(V3(0f, 0f, 1f)), flat * -1f) < 0.5f)
+        // the window spot is WINDOW_SIDE_DEG left of where you looked, the studio STUDIO_SIDE_DEG right
+        assertEquals(Place.WINDOW_SIDE_DEG, Place.yawBetween(Place.flatForward(rot(20f, -30f))!!, wdir), 0.1f)
+        assertEquals(Place.STUDIO_SIDE_DEG + Place.WINDOW_SIDE_DEG, Place.yawBetween(V3(Place.studio(head, rot(20f, 0f)).p.x - head.x, 0f, Place.studio(head, rot(20f, 0f)).p.z - head.z).norm(), Place.windowDirFor(head, Place.studio(head, rot(20f, 0f)))), 0.1f)
+    }
+
+    companion object {
+        /** Window drawn size in the Mixed Stage (kinetica / region-snap / traffic-signals measurements, pico-cli-feedback). */
+        const val DEG_PER_DP = 0.057f
+        const val WIN_W_DP = 600f
+        const val WIN_H_DP = 572f
+        const val WIN_CTRL_DP = 77f
+        const val WIN_TAB_DP = 88f
     }
 
     @Test fun invalidPose() {
@@ -113,6 +149,10 @@ class PlaceTest {
         assertEquals("start", g.step(520, 1f))
         g.ask("recall", 1000)
         assertNull(g.step(1000, null)); assertNotNull(g.step(6100, null))
+        // v0.1.3: level but looking at the studio (31°+ away from the window spot) keeps waiting; turning there opens
+        g.ask("start", 10_000)
+        assertNull(g.step(10_100, 0f, 40f)); assertNull(g.step(10_500, 0f, 40f)); assertTrue(g.hintWanted(0f, 40f))
+        assertNull(g.step(10_600, 0f, 4f)); assertEquals("start", g.step(10_950, 0f, -3f))
     }
 
     @Test fun raySphereHit() {

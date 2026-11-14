@@ -31,6 +31,7 @@ import io.embodit.renderlab.domain.MeshBuilder
 import io.embodit.renderlab.domain.MeshData
 import io.embodit.renderlab.domain.P2
 import io.embodit.renderlab.domain.Phase
+import io.embodit.renderlab.domain.Nudge
 import io.embodit.renderlab.domain.Q4
 import io.embodit.renderlab.domain.Shadow
 import io.embodit.renderlab.domain.Shapes
@@ -55,7 +56,7 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /** Words the volume shows, already in the app language (resolved by StudioScreen). */
-internal data class SceneTexts(val strip: String, val names: Map<LightId, String>, val zh: Boolean, val testF: Boolean = false)
+internal data class SceneTexts(val strip: String, val names: Map<LightId, String>, val zh: Boolean, val testF: Boolean = false, val guide: String = "")
 
 /** Key light intensity per level and the point-light intensity per level (calibrated in the emulator, needsCheck N2). */
 internal object LightLevels {
@@ -92,6 +93,11 @@ internal object LightLevels {
  * └ shelf + sw:0..4 (free light only), wall (free light only: tap collider on the upper half)
  * ```
  */
+/** The B19 first-entry tip (and the "look here" plate, same size): 36 x 4.5 cm, in front of the subject on the floor's front edge. */
+internal const val GUIDE_W = 0.36f
+internal const val GUIDE_H = 0.045f
+internal val GUIDE_AT = V3(0f, Studio.FY + 0.032f, Studio.ZF - 0.025f)
+
 internal class StudioScene(private val scope: CoroutineScope) {
     /** Stage space (world). */
     val world: Entity = Entity().apply { setName("world") }
@@ -162,6 +168,7 @@ internal class StudioScene(private val scope: CoroutineScope) {
     private var freeAt = 0L
 
     private lateinit var physics: PhysicsMaterialResource
+    private var nudgeMade: Pair<Triple<MeshResource, ShapeResource, Map<Nudge, TextureResource>>, MeshResource>? = null
 
     // Full Space: the "look straight ahead" plate, the strip as the reopen entry. No app-drawn controller ray (D41
     // correction 2026-11-13): the system draws one ray per controller in Full Space, so the app only does the pick.
@@ -179,6 +186,16 @@ internal class StudioScene(private val scope: CoroutineScope) {
     @Volatile var levelWords: String = ""
 
     @Volatile private var hover: String? = null
+
+    // D53: the ▲▼◀▶ beside the selected light; B19: the first-entry tip in front of the subject
+    private val nudges = HashMap<Nudge, Entity>()
+    private var nudgeShown: Boolean? = null
+    private var guide: ModelEntity? = null
+    private var guideMat: UnlitMaterial? = null
+    private var guideTex: TextureResource? = null
+    private var guideShown: String? = null
+    private var guideBusy = false
+    private var guideOn: Boolean? = null
 
     fun setHover(name: String?) {
         if (name == hover) return
@@ -220,6 +237,13 @@ internal class StudioScene(private val scope: CoroutineScope) {
             val swShape = async(io) { keep(ShapeResource.createSphere(Studio.SWATCH_HIT_R)) }
             val wallShape = async(io) { keep(ShapeResource.createBox(Vector3(0.66f, Studio.WALL_TOP - Studio.WALL_TAP_MIN_Y, 0.01f))) }
             val phys = async(io) { keep(PhysicsMaterialResource()) }
+            nudgeMade = async(io) {
+                Triple(
+                    keep(Kit.mesh(Kit.quad(Studio.NUDGE_S, Studio.NUDGE_S), "nudge")),
+                    keep(ShapeResource.createBox(Vector3(Studio.NUDGE_HIT, Studio.NUDGE_HIT, 0.012f))),
+                    Nudge.entries.associateWith { keep(TextureResource.create(Tex.arrow(it))) },
+                ) to keep(Kit.mesh(Kit.quad(GUIDE_W, GUIDE_H, 24, 2), "guide"))
+            }.await()
             listOf(floorSlab, floorTopM, wall, wallBack, ball, haloQ, labelQ, beamM, strip, flashM, shelfM, swatchM, haloTex, dusk, orbShape, swShape, wallShape, phys).awaitAll()
             Made(floorSlab.await(), floorTopM.await(), wall.await(), wallBack.await(), subj.mapValues { it.value.await() }, ball.await(), haloQ.await(), labelQ.await(),
                 beamM.await(), strip.await(), flashM.await(), shelfM.await(), swatchM.await(), haloTex.await(), dusk.await(), orbShape.await(), swShape.await(), wallShape.await(), phys.await())
@@ -290,7 +314,7 @@ internal class StudioScene(private val scope: CoroutineScope) {
         root.addChild(strip!!)
         stripShape = keep(ShapeResource.createBox(Vector3(Studio.STRIP_W, Studio.STRIP_H + 0.02f, 0.01f)))
         levelMat = keep(Kit.unlit(0xFFFFFF))
-        levelPlate = ModelEntity(made.strip, levelMat!!).apply { setName("levelPlate"); enabled = false }.also { world.addChild(it) }
+        levelPlate = ModelEntity(nudgeMade!!.second, levelMat!!).apply { setName("levelPlate"); enabled = false }.also { world.addChild(it) }
 
         // free light: shelf + swatches + wall tap
         val sh = Entity().apply { setName("shelfRoot"); enabled = false }
@@ -312,6 +336,23 @@ internal class StudioScene(private val scope: CoroutineScope) {
             components.set(InteractableComponent())
             enabled = false
         }.also { root.addChild(it) }
+
+        // D53 step buttons (opaque dark squares with a white arrow, so the system hover can light them) + the B19 tip
+        nudgeMade?.let { (nm, guideQ) ->
+            val (quad, shape, tex) = nm
+            for (n in Nudge.entries) {
+                val h = Entity().apply { setName(StudioNames.nudge(n)); enabled = false }
+                h.components.set(CollisionComponent(collisionShape = listOf(shape), physicsMaterial = physics))
+                h.components.set(InteractableComponent())
+                h.components.set(HoverEffectComponent())
+                val m = keep(Kit.unlit(0xFFFFFF)).apply { setBaseColorTexture(tex.getValue(n)) }
+                h.addChild(ModelEntity(quad, m).apply { setName("nudgeFace:${n.name.lowercase()}") })
+                root.addChild(h)
+                nudges[n] = h
+            }
+            guideMat = keep(Kit.unlit(0xFFFFFF))
+            guide = ModelEntity(guideQ, guideMat!!).apply { setName("guidePlate"); enabled = false; at(GUIDE_AT) }.also { root.addChild(it) }
+        }
 
         built = true
         Log.i(TAG, "SCENE built in ${SystemClock.elapsedRealtime() - t0} ms tris=${SubjectId.entries.associateWith { Shots.subject(it).triangles }}")
@@ -410,12 +451,24 @@ internal class StudioScene(private val scope: CoroutineScope) {
         }
     }
 
+    private fun refreshGuide() {
+        val words = texts.guide + if (texts.testF) "#F" else ""
+        if (words == guideShown || guideBusy) return
+        guideBusy = true
+        val w = texts.guide; val f = texts.testF
+        scope.launch {
+            val tex = withContext(Dispatchers.IO) { runCatching { TextureResource.create(Tex.plate(w, GUIDE_W / GUIDE_H, f)) }.getOrNull() }
+            if (tex != null) { guideMat?.setBaseColorTexture(tex); guideTex?.let { runCatching { it.close() } }; guideTex = tex; guideShown = words; Log.i(TAG, "GUIDE \"$w\"") }
+            guideBusy = false
+        }
+    }
+
     private fun refreshLevel() {
         val words = levelWords
         if (words == levelText || levelBusy || words.isEmpty()) return
         levelBusy = true
         scope.launch {
-            val tex = withContext(Dispatchers.IO) { runCatching { TextureResource.create(Tex.strip(words)) }.getOrNull() }
+            val tex = withContext(Dispatchers.IO) { runCatching { TextureResource.create(Tex.plate(words, GUIDE_W / GUIDE_H)) }.getOrNull() }
             if (tex != null) { levelMat?.setBaseColorTexture(tex); levelTex?.let { runCatching { it.close() } }; levelTex = tex; levelText = words }
             levelBusy = false
         }
@@ -579,6 +632,21 @@ internal class StudioScene(private val scope: CoroutineScope) {
             o.halo.at(V3.ZERO, s = s)
         }
 
+        // D53: ▲▼◀▶ beside the selected light while it can be moved (hidden while dragging)
+        val canMove = (st.phase == Phase.LIGHTING || st.phase == Phase.FREE || st.phase == Phase.WELCOME) && st.dragging == null
+        if (nudgeShown != canMove) { nudgeShown = canMove; nudges.values.forEach { it.enabled = canMove }; Log.i(TAG, "NUDGE buttons $canMove") }
+        if (canMove) {
+            val orb = st.lights[st.selected].pos
+            for ((n, e) in nudges) e.at(Studio.nudgePos(orb, n), s = if (hover == StudioNames.nudge(n)) 1.1f else 1f)
+        }
+        // B19: "pinch a light and drag it" in front of the subject until you moved one once (Settings can show it again)
+        val wantGuide = !st.guideDone && (st.phase == Phase.LIGHTING || st.phase == Phase.WELCOME || st.phase == Phase.FREE) && texts.guide.isNotEmpty()
+        guide?.let { g ->
+            val on = wantGuide && guideShown != null
+            if (guideOn != on) { guideOn = on; g.enabled = on; Log.i(TAG, "GUIDE plate $on") }
+            if (wantGuide) refreshGuide()
+        }
+
         // lights
         val k = st.lights.key
         keyLight?.let { e ->
@@ -654,6 +722,7 @@ internal class StudioScene(private val scope: CoroutineScope) {
 
     fun dispose() {
         stripTex?.let { runCatching { it.close() } }
+        guideTex?.let { runCatching { it.close() } }
         orbs.values.forEach { o -> o.labelTex?.let { runCatching { it.close() } } }
         shadowMeshes.forEach { runCatching { it.close() } }
         fenceMesh?.let { runCatching { it.close() } }
@@ -667,12 +736,14 @@ object StudioNames {
     const val STRIP = "strip"
     fun orb(id: LightId) = "orb:${id.name.lowercase()}"
     fun swatch(i: Int) = "sw:$i"
+    fun nudge(d: Nudge) = "nudge:${d.name.lowercase()}"
 
     sealed interface Hit
     data class OrbHit(val id: LightId) : Hit
     data class SwatchHit(val index: Int) : Hit
     data object WallHit : Hit
     data object StripHit : Hit
+    data class NudgeHit(val dir: Nudge) : Hit
     data object NoHit : Hit
 
     fun hitOf(name: String?): Hit {
@@ -681,6 +752,7 @@ object StudioNames {
         return when (f[0]) {
             "orb" -> if (f.size == 2) LightId.entries.firstOrNull { it.name.lowercase() == f[1] }?.let { OrbHit(it) } ?: NoHit else NoHit
             "sw" -> f.getOrNull(1)?.toIntOrNull()?.takeIf { f.size == 2 && it in 0..4 }?.let { SwatchHit(it) } ?: NoHit
+            "nudge" -> if (f.size == 2) Nudge.entries.firstOrNull { it.name.lowercase() == f[1] }?.let { NudgeHit(it) } ?: NoHit else NoHit
             WALL -> if (f.size == 1) WallHit else NoHit
             STRIP -> if (f.size == 1) StripHit else NoHit
             else -> NoHit

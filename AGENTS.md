@@ -1,7 +1,7 @@
 # 光影渲染 RenderLab: project guidance
 
 A tabletop photo studio in PICO OS 6 Full Space (Mixed Stage) (Spatial SDK BOM 6.1.9), package `io.embodit.renderlab`,
-v0.1.2. Design contract: spatial-app-factory `apps/render-lab/design-package.json` (design-1.2; gate B 2026-11-12 all
+v0.1.3. Design contract: spatial-app-factory `apps/render-lab/design-package.json` (design-1.2; gate B 2026-11-12 all
 defaults: self-computed shadow + score, procedural subjects, no .glb import, 1 cm dashed fence). `v2[]` not built (no glb
 import, no Tripo plaster head, no custom IBL, no export, no spot light, no material sliders, no turntable, no SDK shadows).
 Skeleton from the factory's puzzle-box project (CloudAir lineage: two containers, theme, sound pool, board-input template).
@@ -74,6 +74,16 @@ Other: `solve`, `shoot`, `next`, `again`, `orb "<key|fill|rim> <az> <el>"` (thro
 `testf on|off` (F↑ on strip and plates), `striptex "<text>"` (writes the strip texture to files/striptex.png), `keylevels "<l> <m> <h>"`, `pointscale <k>`, `n2 on|off`, `dump`, `evidence`.
 
 ## Known
+- v0.1.3 (headset 2026-11-14 "lights cannot be moved"): root cause = SDK 6.1.9 `detectSpatialDragGesture` sends
+  `dragAmount` as ONE EVENT's delta (position3d - previousPosition3d); the board-input template read it as the travel
+  since the press, so the light snapped back to its start every event. `DragTotal` now sums the deltas. Direct pinch /
+  poke 1:1, hand ray / eye-hand x2. D53 3D step buttons (`nudge:up|down|left|right`) beside the selected light, held =
+  repeat (`NudgeRepeat`). D54: subject centre 13° below the eye whatever the eye height (`Place.ROOT_DY`); studio 31°
+  right of the start direction, window 31° left (the window gate also waits for that yaw, plate "look here").
+  Settings > How to use page (`how_to_*`), first-entry tip plate (`guide_drag`, saved `guide=1`).
+  Debug: `openwin` (open the window now), `nudge <up|down|left|right>`, `guide` (tip again), `howto on|off`,
+  `dragdeltas "<light> <n> <dx,dy,dz> <source>"` (replays a drag as per-event deltas through StudioListener + DragTotal).
+  Emulator head: `pico-cli capture camera move -d <dev> --text "turn left 31 degrees"` / `"move down 0.4 meters"`.
 - v0.1.2 (headset 2026-11-13): no app-drawn controller ray / hit dot, the system ray only (one per controller).
 - v0.1.1 (QA #1 rework): primary / secondary buttons 64 dp, side-by-side gap `BUTTON_GAP` 16 dp; confirm pages are a full-page card;
   stars share the overlap line in the align card; button text 叫回面前 / Recall; orb plates 16 x 3.2 cm dark pills; the

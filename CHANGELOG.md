@@ -1,5 +1,12 @@
 # Changelog · 更新记录
 
+## v0.1.3 (2026-11-14)
+- Lights follow the hand again on the headset: drag deltas are summed (SDK sends per-event `dragAmount`).
+- 3D ▲ ▼ ◀ ▶ beside the selected light (tap or hold) as a fallback.
+- Settings > How to use (hand and controller for every action) and a first-entry tip in front of the subject.
+- Default height follows your eye (seated or standing): subject 13° below the line of sight; studio and window side by side.
+- Sliders follow taps and small drags, then settle on a step.
+
 ## v0.1.2 · 2026-11-13
 
 - 去掉应用自己画的手柄射线和落点，只用系统射线：每个手柄只有一条射线。拖灯时从主体连到灯球的细线是光线方向线，不是射线。

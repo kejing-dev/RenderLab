@@ -19,4 +19,6 @@ object Ui {
     var page by mutableStateOf(Page.LIGHT)
     var exitConfirm by mutableStateOf(false)
     var clearConfirm by mutableStateOf(false)
+    /** Settings > 怎么操作 (B19 how-to page). */
+    var howTo by mutableStateOf(false)
 }

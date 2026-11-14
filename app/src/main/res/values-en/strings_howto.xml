@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English how-to strings (same as values/; ui_gates how-to reads values-en) -->
+<resources>
+    <string name="how_to_entry">How to use</string>
+    <string name="how_to_open">Open</string>
+    <string name="how_to_title">How to use</string>
+    <string name="how_to_move_title">Move a light</string>
+    <string name="how_to_move_hand">Hand: pinch the light (reach out, or look at it and pinch), then drag. Stuck? Tap ▲ ▼ ◀ ▶ beside it.</string>
+    <string name="how_to_move_ctrl">Controller: point at the light, hold the trigger and drag. Let go to drop it.</string>
+    <string name="how_to_pick_title">Pick a light, switch it on</string>
+    <string name="how_to_pick_hand">Hand: look at a light and pinch once. An off fill or rim light comes on.</string>
+    <string name="how_to_pick_ctrl">Controller: point at the light and pull the trigger once.</string>
+    <string name="how_to_tune_title">Brightness and colour</string>
+    <string name="how_to_tune_hand">Hand: on the Light page, drag a slider or pinch a spot on it.</string>
+    <string name="how_to_tune_ctrl">Controller: point at a slider, pull the trigger on a spot or hold it and drag.</string>
+    <string name="how_to_shoot_title">Shoot, next card</string>
+    <string name="how_to_shoot_hand">Hand: once the shadow sits in the dashed fence, pinch Shoot, then Next.</string>
+    <string name="how_to_shoot_ctrl">Controller: point at the button and pull the trigger.</string>
+    <string name="how_to_free_title">Material and backdrop</string>
+    <string name="how_to_free_hand">Free light: pinch a ball on the shelf for its material, the upper wall for a new backdrop.</string>
+    <string name="how_to_free_ctrl">Controller: point at a ball or the wall and pull the trigger.</string>
+    <string name="how_to_replay">Show the tip</string>
+    <string name="how_to_back">Back</string>
+</resources>

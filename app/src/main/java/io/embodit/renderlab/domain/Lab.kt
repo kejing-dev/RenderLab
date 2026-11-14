@@ -13,6 +13,9 @@ enum class Phase { LOADING, WELCOME, LIGHTING, RESULT, FREE }
 
 enum class Sound { GRAB, DROP, MATCH, SHUTTER, STAR }
 
+/** The 3D step buttons beside the selected light (D53). */
+enum class Nudge { UP, DOWN, LEFT, RIGHT }
+
 enum class Language { SYSTEM, ZH, EN }
 
 /** volume 0 = mute, 1..3 = low / mid / high (design: three snap stops, far left = mute). */
@@ -50,6 +53,8 @@ data class LabState(
     val card: Int = 0,
     val randomSeed: Long = 4821,
     val welcomeDone: Boolean = false,
+    /** First-entry tip (B19 how-to): "pinch a light and drag it" beside the subject until the first real move. */
+    val guideDone: Boolean = false,
 ) {
     val free: Boolean get() = phase == Phase.FREE
     val matched: Boolean get() = score?.matched == true
@@ -75,6 +80,7 @@ data class Saved(
     val freeMaterial: MaterialId,
     val freeBackdrop: Backdrop,
     val welcomeDone: Boolean,
+    val guideDone: Boolean = false,
 )
 
 interface SaveStore { fun load(): Saved?; fun save(s: Saved); fun clear() }
@@ -90,6 +96,7 @@ object SaveCodec {
         "key=${l(s.lights.key)}", "fill=${l(s.lights.fill)}", "rim=${l(s.lights.rim)}",
         "free=${s.freeSubject.name},${s.freeMaterial.name},${s.freeBackdrop.name}",
         "welcome=${if (s.welcomeDone) 1 else 0}",
+        "guide=${if (s.guideDone) 1 else 0}",
     ).joinToString("\n")
 
     fun decode(text: String): Saved {
@@ -99,7 +106,7 @@ object SaveCodec {
         return Saved(
             best, m.getValue("mode").toInt(), m.getValue("seed").toLong(),
             Lights(pl(m.getValue("key")), pl(m.getValue("fill")), pl(m.getValue("rim"))),
-            SubjectId.valueOf(fr[0]), MaterialId.valueOf(fr[1]), Backdrop.valueOf(fr[2]), m["welcome"] == "1",
+            SubjectId.valueOf(fr[0]), MaterialId.valueOf(fr[1]), Backdrop.valueOf(fr[2]), m["welcome"] == "1", m["guide"] == "1",
         )
     }
 }
@@ -134,7 +141,7 @@ class LabFlow(
         }
         _state.value = LabState(
             phase = Phase.LOADING, best = saved.best, randomSeed = saved.randomSeed, freeSubject = saved.freeSubject,
-            freeMaterial = saved.freeMaterial, freeBackdrop = saved.freeBackdrop, welcomeDone = saved.welcomeDone,
+            freeMaterial = saved.freeMaterial, freeBackdrop = saved.freeBackdrop, welcomeDone = saved.welcomeDone, guideDone = saved.guideDone,
         )
         when {
             !saved.welcomeDone -> loadShot(0, Phase.WELCOME)
@@ -250,14 +257,52 @@ class LabFlow(
 
     fun dragEnd() {
         val id = st.dragging ?: return
-        _state.value = st.copy(dragging = null)
+        val moved = Studio.angleDeg(st.lights[id].pos - Studio.C, dragFrom - Studio.C)
+        _state.value = st.copy(dragging = null, guideDone = st.guideDone || moved >= GUIDE_MOVE_DEG)
         onSound(Sound.DROP, 0.84f)
-        log("DRAG end $id at ${Studio.readout(st.lights[id].az, st.lights[id].el, false)}")
+        log("DRAG end $id at ${Studio.readout(st.lights[id].az, st.lights[id].el, false)} moved=${"%.1f".format(moved)}°")
         changed(force = true)
         save()
     }
 
     fun dragCancel() = dragEnd()
+
+    /**
+     * D53 fallback: the 3D ▲▼◀▶ beside the selected light. ◀ / ▶ move it left / right as you see it (round the
+     * subject), ▲ / ▼ up / down, [NUDGE_DEG] a step (held: repeated by the caller). Same clamp / no-push rule as a drag.
+     */
+    fun nudge(dir: Nudge) {
+        if (!canTouch || st.dragging != null) return
+        if (st.phase == Phase.WELCOME) beginFromWelcome()
+        val id = st.selected
+        var l = st.lights
+        if (!l[id].on) { l = l.with(id, l[id].copy(level = Level.LOW)); _state.value = st.copy(lights = l) }
+        val cur = l[id]
+        val (az, el) = nudgeTarget(cur.az, cur.el, dir)
+        place(id, az, el)
+        var after = st.lights[id]
+        var moved = kotlin.math.abs(after.az - cur.az) + kotlin.math.abs(after.el - cur.el) > 0.5f
+        // blocked by another light right next to it: hop over it (2–5 steps) instead of doing nothing (D43)
+        if (!moved) for (k in 2..5) {
+            val ta = Studio.clampAz(cur.az + (az - cur.az) * k); val te = Studio.clampEl(cur.el + (el - cur.el) * k)
+            if ((kotlin.math.abs(ta - cur.az) + kotlin.math.abs(te - cur.el)) > 0.5f && st.lights.canPlace(id, ta, te)) {
+                _state.value = st.copy(lights = st.lights.with(id, cur.copy(az = ta, el = te)))
+                after = st.lights[id]; moved = true
+                break
+            }
+        }
+        if (moved && !st.guideDone) _state.value = st.copy(guideDone = true)
+        log("NUDGE $id $dir -> ${Studio.readout(after.az, after.el, false)} moved=$moved")
+        changed(force = true)
+        save()
+    }
+
+    /** Settings > How to use [重看引导]: the first-entry tip comes back. */
+    fun showGuideAgain() {
+        _state.value = st.copy(guideDone = false)
+        log("GUIDE again")
+        save()
+    }
 
     /**
      * Moves orb [id] toward (az, el) clamped to the allowed band; if that crowds another orb it stops at the last clear
@@ -386,6 +431,23 @@ class LabFlow(
         rescore(force = true)
     }
 
+    companion object {
+        /** A drag that moved the light this far (on the orbit) counts as "done it once" for the first-entry tip. */
+        const val GUIDE_MOVE_DEG = 5f
+        const val NUDGE_DEG = 6f
+
+        /** ◀ / ▶ follow the screen: +az moves +x where cos(az) >= 0 (front half), -x behind the subject. */
+        fun nudgeTarget(az: Float, el: Float, dir: Nudge): Pair<Float, Float> {
+            val front = kotlin.math.cos(az * Studio.D2R) >= 0f
+            return when (dir) {
+                Nudge.UP -> az to el + NUDGE_DEG
+                Nudge.DOWN -> az to el - NUDGE_DEG
+                Nudge.RIGHT -> (az + if (front) NUDGE_DEG else -NUDGE_DEG) to el
+                Nudge.LEFT -> (az - if (front) NUDGE_DEG else -NUDGE_DEG) to el
+            }
+        }
+    }
+
     fun clearProgress() {
         store.clear()
         _state.value = LabState(phase = Phase.LOADING)
@@ -422,7 +484,7 @@ class LabFlow(
         val s = st
         if (s.phase == Phase.LOADING) return
         runCatching {
-            store.save(Saved(s.best, s.mode, s.randomSeed, s.lights, s.freeSubject, s.freeMaterial, s.freeBackdrop, s.welcomeDone))
+            store.save(Saved(s.best, s.mode, s.randomSeed, s.lights, s.freeSubject, s.freeMaterial, s.freeBackdrop, s.welcomeDone, s.guideDone))
         }
     }
 }

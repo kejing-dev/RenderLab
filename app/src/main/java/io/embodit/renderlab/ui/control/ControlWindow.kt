@@ -120,7 +120,7 @@ fun ControlWindow() {
     LaunchedEffect(state.phase) { if (state.phase == Phase.RESULT) Ui.page = Page.LIGHT }
     LaunchedEffect(Ui.page) {
         Log.i(TAG, "PAGE ${Ui.page} ${if (Ui.page == Page.LIGHT) state.stateId else Ui.page.stateId}")
-        if (Ui.page != Page.SETTINGS) { Ui.exitConfirm = false; Ui.clearConfirm = false }
+        if (Ui.page != Page.SETTINGS) { Ui.exitConfirm = false; Ui.clearConfirm = false; Ui.howTo = false }
     }
     LaunchedEffect(state.stateId) { Log.i(TAG, "STATE ${state.stateId}") }
 
@@ -339,13 +339,28 @@ private fun SnapSlider(label: String, value: String, tag: String, stops: Int, in
     Column(Modifier.fillMaxWidth()) {
         // one line "主光 · 亮度：高" (two Texts in a Row drifted apart vertically in the window, v0.1.0 self-check)
         Txt("$label：$value".replace("：", if (isZh()) "：" else ": "), "$tag/label", style = PicoTheme.typography.labelLarge, modifier = Modifier.fillMaxWidth().height(26.dp))
-        Slider(
-            value = index.toFloat(),
-            onValueChange = { v -> val s = kotlin.math.round(v).toInt().coerceIn(0, stops - 1); if (s != index) onPick(s) },
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-            valueRange = 0f..(stops - 1).toFloat(),
-        )
+        StepSlider(index = index, stops = stops, onPick = onPick, modifier = Modifier.fillMaxWidth())
     }
+}
+
+/**
+ * A native Slider that snaps to [stops] positions without swallowing taps (B20, ui_gates slider-quantized): the thumb
+ * follows a local Float while you drag or tap, the level changes as soon as it crosses a half step, and on release it
+ * settles on the nearest step. 48 dp tall (B19).
+ */
+@Composable
+internal fun StepSlider(index: Int, stops: Int, onPick: (Int) -> Unit, modifier: Modifier) {
+    var local by remember { mutableStateOf(index.toFloat()) }
+    var held by remember { mutableStateOf(false) }
+    LaunchedEffect(index) { if (!held) local = index.toFloat() }
+    fun snap(v: Float) = kotlin.math.round(v).toInt().coerceIn(0, stops - 1)
+    Slider(
+        value = local,
+        onValueChange = { v -> held = true; local = v; val s = snap(v); if (s != index) onPick(s) },
+        onValueChangeFinished = { held = false; val s = snap(local); local = s.toFloat(); if (s != index) onPick(s); Log.i(TAG, "SLIDER settle $s / $stops") },
+        modifier = modifier.height(48.dp),
+        valueRange = 0f..(stops - 1).toFloat(),
+    )
 }
 
 /** S07 / S10: the result card (target vs yours, stars lighting up one by one, why) and [再摆一次] [下一题]. */
@@ -484,22 +499,23 @@ private fun SettingsPage(settings: Settings, graph: Graph) {
             R.drawable.ic_restart, "clear", onYes = { graph.flow.clearProgress(); Ui.clearConfirm = false; Ui.page = Page.LIGHT }, onNo = { Ui.clearConfirm = false })
         return
     }
+    if (Ui.howTo) { HowToPage(graph); return }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
         Txt(stringResource(R.string.settings_title), "settings/title", style = PicoTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-        Spacer(Modifier.height(28.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(34.dp)) {
+        Spacer(Modifier.height(18.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             SettingRow(stringResource(R.string.settings_volume), "settings/volume") {
-                Slider(
-                    value = settings.volume.toFloat(),
-                    onValueChange = { v -> val s = kotlin.math.round(v).toInt().coerceIn(0, 3); if (s != settings.volume) graph.settings.setVolume(s) },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    valueRange = 0f..3f,
-                )
+                StepSlider(index = settings.volume, stops = 4, onPick = { graph.settings.setVolume(it) }, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(12.dp))
                 Txt(if (settings.volume == 0) stringResource(R.string.volume_mute) else "${VOLUME_PERCENT[settings.volume]}%", "settings/volume-pct",
                     style = PicoTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), modifier = Modifier.width(64.dp))
             }
             SettingRow(stringResource(R.string.settings_language), "settings/lang") { LanguagePicker(settings, graph) }
+            // B19 (headset 2026-11-14 "得把怎么操作写在设置面板一个界面里"): one page, every main action, hand + controller
+            SettingRow(stringResource(R.string.how_to_entry), "settings/howto") {
+                Spacer(Modifier.weight(1f))
+                SecondaryButton(stringResource(R.string.how_to_open), "settings/howto-btn", onClick = { Ui.howTo = true; Log.i(TAG, "PAGE HOWTO") }, icon = R.drawable.ic_help, modifier = Modifier.width(200.dp).height(64.dp))
+            }
             // Full Space (D44): bring the studio and the window back in front of you; [清除进度] moved to the Shots page (B31 <= 7)
             SettingRow(stringResource(R.string.settings_recall), "settings/recall") {
                 Spacer(Modifier.weight(1f))
@@ -510,9 +526,45 @@ private fun SettingsPage(settings: Settings, graph: Graph) {
                 SecondaryButton(stringResource(R.string.btn_exit_ask), "settings/exit-btn", onClick = { Ui.exitConfirm = true; Log.i(TAG, "CONFIRM EXIT") }, icon = R.drawable.ic_exit, danger = true, modifier = Modifier.width(200.dp).height(64.dp))
             }
         }
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(18.dp))
         Txt(stringResource(R.string.settings_note1, BuildConfig.VERSION_NAME), "settings/note1", style = PicoTheme.typography.bodySmall, color = LabColors.InkSecondary)
         Txt(stringResource(R.string.settings_note2), "settings/note2", style = PicoTheme.typography.bodySmall, color = LabColors.InkSecondary, maxLines = 2)
+    }
+}
+
+/** One row of the how-to page: what you do, how with your hand, how with the controller (strings how_to_*). */
+private data class HowTo(val icon: Int, val title: Int, val hand: Int, val ctrl: Int)
+
+private val HOW_TO = listOf(
+    HowTo(R.drawable.ic_move, R.string.how_to_move_title, R.string.how_to_move_hand, R.string.how_to_move_ctrl),
+    HowTo(R.drawable.ic_touch, R.string.how_to_pick_title, R.string.how_to_pick_hand, R.string.how_to_pick_ctrl),
+    HowTo(R.drawable.ic_tune, R.string.how_to_tune_title, R.string.how_to_tune_hand, R.string.how_to_tune_ctrl),
+    HowTo(R.drawable.ic_shoot, R.string.how_to_shoot_title, R.string.how_to_shoot_hand, R.string.how_to_shoot_ctrl),
+    HowTo(R.drawable.ic_swap, R.string.how_to_free_title, R.string.how_to_free_hand, R.string.how_to_free_ctrl),
+)
+
+/** Settings > 怎么操作 (B19): every main action, as implemented, then [重看引导] and [返回]. */
+@Composable
+private fun HowToPage(graph: Graph) {
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+        Txt(stringResource(R.string.how_to_title), "howto/title", style = PicoTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+        for ((i, h) in HOW_TO.withIndex()) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(LabColors.CardFace), contentAlignment = Alignment.Center) {
+                    Icon(painter = painterResource(h.icon), contentDescription = null, modifier = Modifier.size(26.dp), tint = LabColors.Ink)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Txt(stringResource(h.title), "howto/$i/title", style = PicoTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                    Txt(stringResource(h.hand), "howto/$i/hand", style = PicoTheme.typography.bodySmall, maxLines = 2)
+                    Txt(stringResource(h.ctrl), "howto/$i/ctrl", style = PicoTheme.typography.bodySmall, color = LabColors.InkSecondary, maxLines = 2)
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(BUTTON_GAP)) {
+            SecondaryButton(stringResource(R.string.how_to_back), "howto/back", onClick = { Ui.howTo = false }, icon = R.drawable.ic_prev, modifier = Modifier.weight(1f).height(64.dp))
+            SecondaryButton(stringResource(R.string.how_to_replay), "howto/replay", onClick = { graph.flow.showGuideAgain(); Ui.howTo = false; Ui.page = Page.LIGHT }, icon = R.drawable.ic_replay, modifier = Modifier.weight(1f).height(64.dp))
+        }
     }
 }
 

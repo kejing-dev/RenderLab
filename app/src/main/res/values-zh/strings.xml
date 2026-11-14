@@ -107,4 +107,26 @@
     <string name="btn_recall">叫回面前</string>
     <string name="strip_panel_closed">控制窗关掉了，点这条字重开。</string>
     <string name="settings_note2">控制窗关掉了：点摄影棚墙上那条字重开。</string>
+    <string name="how_to_entry">怎么操作</string>
+    <string name="how_to_open">查看</string>
+    <string name="how_to_title">怎么操作</string>
+    <string name="how_to_move_title">移动灯</string>
+    <string name="how_to_move_hand">手：伸手捏住灯，或看着灯捏合，然后拖。拖不动就点灯旁的 ▲ ▼ ◀ ▶。</string>
+    <string name="how_to_move_ctrl">手柄：射线指着灯，按住扳机拖，松开就停。</string>
+    <string name="how_to_pick_title">选灯、开灯</string>
+    <string name="how_to_pick_hand">手：看着灯捏一下。关着的补光、轮廓光会亮起来。</string>
+    <string name="how_to_pick_ctrl">手柄：射线指着灯，按一下扳机。</string>
+    <string name="how_to_tune_title">亮度和色温</string>
+    <string name="how_to_tune_hand">手：在打光页拖滑条，或看着滑条上某处捏一下。</string>
+    <string name="how_to_tune_ctrl">手柄：射线指着滑条，按一下扳机，或按住拖。</string>
+    <string name="how_to_shoot_title">拍下、下一题</string>
+    <string name="how_to_shoot_hand">手：影子落进虚线围栏后，捏 [拍下]，再捏 [下一题]。</string>
+    <string name="how_to_shoot_ctrl">手柄：射线指着按钮，按扳机。</string>
+    <string name="how_to_free_title">换材质、换背景</string>
+    <string name="how_to_free_hand">自由打光里：捏架子上的小球换材质，捏墙的上半截换背景。</string>
+    <string name="how_to_free_ctrl">手柄：射线指着小球或墙，按扳机。</string>
+    <string name="how_to_replay">重看引导</string>
+    <string name="how_to_back">返回</string>
+    <string name="guide_drag">捏住一盏灯拖一拖，看影子跟着变。</string>
+    <string name="look_window">看这里，控制窗在这儿打开。</string>
 </resources>

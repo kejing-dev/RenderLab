@@ -54,6 +54,23 @@ object Studio {
     const val LABEL_H = 0.032f
     const val LABEL_DY = 0.05f
 
+    /**
+     * D53 step buttons beside the selected light: upright 4.4 cm squares (>= 4 cm, ~3.6° at 0.7 m), ◀ ▶ 8 cm to the
+     * sides (1.9 cm clear of the orb's hit sphere), ▲ above the name plate, ▼ below (kept above the floor).
+     */
+    const val NUDGE_S = 0.044f
+    const val NUDGE_HIT = 0.050f
+    const val NUDGE_SIDE = 0.08f
+    const val NUDGE_UP = LABEL_DY + LABEL_H / 2 + 0.016f + NUDGE_S / 2
+    const val NUDGE_DOWN = 0.08f
+
+    fun nudgePos(orb: V3, d: Nudge): V3 = when (d) {
+        Nudge.LEFT -> orb + V3(-NUDGE_SIDE, 0f, 0f)
+        Nudge.RIGHT -> orb + V3(NUDGE_SIDE, 0f, 0f)
+        Nudge.UP -> orb + V3(0f, NUDGE_UP, 0f)
+        Nudge.DOWN -> V3(orb.x, maxOf(orb.y - NUDGE_DOWN, FY + NUDGE_S / 2 + 0.005f), orb.z)
+    }
+
     /** Material shelf (free light only). */
     const val SWATCH_R = 0.0225f
     const val SWATCH_HIT_R = 0.0325f

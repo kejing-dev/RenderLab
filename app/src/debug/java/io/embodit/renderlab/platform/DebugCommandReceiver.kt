@@ -128,6 +128,30 @@ class DebugCommandReceiver : BroadcastReceiver() {
             "closepanel" -> graph.window.closeControlOnly()
             "reopen" -> graph.window.reopen()
             "recall" -> graph.recall()
+            "openwin" -> graph.window.forceOpen()
+            "nudge" -> flow.nudge(io.embodit.renderlab.domain.Nudge.valueOf(a.uppercase()))
+            "guide" -> flow.showGuideAgain()
+            "howto" -> { Ui.page = Page.SETTINGS; Ui.howTo = on || a.isEmpty() }
+            // v0.1.3 root-cause replay: a drag on <light> delivered like the headset does it, as <n> per-event deltas of
+            // <dx,dy,dz> metres (view axes), summed by BoardInput's DragTotal and fed to the same StudioListener
+            "dragdeltas" -> {
+                val l = StudioListener(flow, SceneHolder.scene, { v -> graph.studioPose?.let { io.embodit.renderlab.domain.Place.dirToLocal(it, v) } ?: v })
+                val src = InputSource.entries.firstOrNull { it.label == f.getOrNull(3) } ?: InputSource.DIRECT
+                val n = f.getOrNull(1)?.toIntOrNull() ?: 30
+                val step = f.getOrNull(2)?.split(",")?.map { it.toFloat() } ?: listOf(0.004f, 0f, 0f)
+                val total = io.embodit.renderlab.ui.studio.input.DragTotal()
+                val target = io.embodit.renderlab.ui.studio.StudioNames.orb(light(f[0]))
+                l.onPress(target, src)
+                if (l.onDragStart(target, src)) {
+                    var i = 0
+                    fun next() {
+                        if (i++ >= n) { l.onRelease(); l.onDragEnd(); Log.i(TAG, "DRAGDELTAS done total=${total.text()} -> ${st().lights}"); return }
+                        l.onDragMove(total.add(io.embodit.renderlab.ui.studio.input.Offset3M(step[0], step[1], step[2])))
+                        later(16) { next() }
+                    }
+                    next()
+                }
+            }
             "s00hold" -> context.getSharedPreferences("debug", Context.MODE_PRIVATE).edit().putBoolean("s00hold", on).apply()
             "testf" -> SceneHolder.testF = on
             "keylevels" -> { LightLevels.keyLow = f[0].toFloat(); LightLevels.keyMid = f[1].toFloat(); LightLevels.keyHigh = f[2].toFloat(); flow.setLevel(st().lights.key.level) }

@@ -57,6 +57,8 @@ class Graph(context: Context) {
     /** Studio pose in Stage space; null until the first valid head pose (then set once, and again on [叫回面前]). */
     @Volatile var studioPose: io.embodit.renderlab.domain.Pose? = null
     @Volatile var recallStudio = true
+    /** Where the control window should open (flat unit vector from the eye), beside the studio (v0.1.3, D54 / D41). */
+    @Volatile var windowDir: io.embodit.renderlab.domain.V3? = null
 
     /** Settings [叫回面前] (D44 in Full Space): the studio back in front of you at desk height, the window reopened ahead. */
     fun recall() {
